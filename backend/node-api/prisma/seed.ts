@@ -25,6 +25,14 @@ async function main() {
         }
     });
 
+    // Create Team C
+    const teamC = await prisma.team.create({
+        data: {
+            name: 'Gamma Communications',
+            whatsappPhoneNumberId: '300000000000003'
+        }
+    });
+
     // Create User for Team A
     const userA = await prisma.user.upsert({
         where: { email: 'alice@alpha.com' },
@@ -58,6 +66,25 @@ async function main() {
                 create: {
                     businessName: 'Beta Services',
                     businessPhone: '+1 555-0200',
+                }
+            }
+        }
+    });
+
+    // Create User for Team C
+    const userC = await prisma.user.upsert({
+        where: { email: 'charlie@gamma.com' },
+        update: { teamId: teamC.id },
+        create: {
+            email: 'charlie@gamma.com',
+            name: 'Charlie',
+            password: passwordHash,
+            role: 'Admin',
+            teamId: teamC.id,
+            settings: {
+                create: {
+                    businessName: 'Gamma Communications',
+                    businessPhone: '+1 555-0300',
                 }
             }
         }
@@ -97,9 +124,27 @@ async function main() {
         }
     });
 
+    // Create Sample Contacts and Messages for Team C
+    const contactC1 = await prisma.contact.create({
+        data: {
+            name: 'Customer C1',
+            phone: '15553333333',
+            status: 'new-order',
+            teamId: teamC.id,
+            assignedToId: userC.id,
+            messages: {
+                create: [
+                    { text: 'Hello Gamma, setup inquiry?', sent: false, teamId: teamC.id },
+                    { text: 'Checking your setup now.', sent: true, teamId: teamC.id }
+                ]
+            }
+        }
+    });
+
     console.log('Seed completed successfully!');
     console.log(`Team A: ${teamA.name} / ${userA.email}`);
     console.log(`Team B: ${teamB.name} / ${userB.email}`);
+    console.log(`Team C: ${teamC.name} / ${userC.email}`);
 }
 
 main()

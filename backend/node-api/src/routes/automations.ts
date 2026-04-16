@@ -31,18 +31,24 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.put('/:id/toggle', async (req: Request, res: Response) => {
     try {
+        const teamId = (req as any).user?.teamId as number;
         const { isActive } = req.body;
-        const flow = await prisma.automationFlow.update({
-            where: { id: parseInt(req.params.id) },
+        const flow = await prisma.automationFlow.updateMany({
+            where: { id: parseInt(req.params.id), teamId },
             data: { isActive }
         });
-        res.json(flow);
+        if (flow.count === 0) return res.status(404).json({ error: 'Flow not found or unauthorized' });
+        res.json({ success: true });
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        await prisma.automationFlow.delete({ where: { id: parseInt(req.params.id) } });
+        const teamId = (req as any).user?.teamId as number;
+        const result = await prisma.automationFlow.deleteMany({
+            where: { id: parseInt(req.params.id), teamId }
+        });
+        if (result.count === 0) return res.status(404).json({ error: 'Flow not found or unauthorized' });
         res.json({ success: true });
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });

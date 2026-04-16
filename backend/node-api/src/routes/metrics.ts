@@ -109,12 +109,10 @@ router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request,
 });
 
 // Savings calculation (team-scoped)
-router.get('/savings', authenticateToken, async (req: Request, res: Response) => {
+router.get('/savings', authenticateToken, enforceTenancy, async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        const totalOrders = teamId
-            ? await (prisma.contact as any).count({ where: { teamId } })
-            : await prisma.contact.count();
+        const totalOrders = await (prisma.contact as any).count({ where: { teamId } });
         const SAVINGS_PER_ORDER = 2.00;
         res.json({ totalSaved: totalOrders * SAVINGS_PER_ORDER, savedPerOrder: SAVINGS_PER_ORDER, totalOrders });
     } catch (error) {

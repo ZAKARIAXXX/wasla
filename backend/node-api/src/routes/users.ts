@@ -113,14 +113,17 @@ router.delete('/:id', requireRole('Admin'), async (req: Request, res: Response) 
     try {
         const userId = parseInt(req.params.id);
         const currentUserId = (req as any).user?.id;
+        const currentTeamId = (req as any).user?.teamId as number;
         
         if (userId === currentUserId) {
             return res.status(400).json({ error: 'Cannot remove yourself' });
         }
         
-        await prisma.user.delete({
-            where: { id: userId }
+        const result = await prisma.user.deleteMany({
+            where: { id: userId, teamId: currentTeamId }
         });
+
+        if (result.count === 0) return res.status(404).json({ error: 'User not found or unauthorized' });
         
         res.json({ message: 'Team member removed successfully' });
     } catch (error) {

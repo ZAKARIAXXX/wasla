@@ -50,7 +50,11 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        await prisma.campaign.delete({ where: { id: parseInt(req.params.id) } });
+        const teamId = (req as any).user?.teamId as number;
+        const result = await prisma.campaign.deleteMany({ 
+            where: { id: parseInt(req.params.id), teamId }
+        });
+        if (result.count === 0) return res.status(404).json({ error: 'Not found or unauthorized' });
         res.json({ message: 'Deleted' });
     } catch {
         res.status(500).json({ error: 'Failed to delete' });

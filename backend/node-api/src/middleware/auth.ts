@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-export type JwtPayload = { id: number; email: string; role: string; teamId?: number };
+export type JwtPayload = { id: number; email: string; role: string; teamId: number };
 
 export interface AuthRequest extends Request {
   user?: {
     id: number;
     email: string;
     role: string;
-    teamId?: number;
+    teamId: number;
   };
 }
 
