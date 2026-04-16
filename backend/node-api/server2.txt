@@ -1,0 +1,61 @@
+﻿
+> whatsflow-api@1.0.0 start
+> node dist/src/app.js
+
+Server is running on port 3000
+WhatsApp WEBHOOK_VERIFIED
+WhatsApp WEBHOOK_VERIFIED
+WhatsApp WEBHOOK_VERIFIED
+node.exe : WhatsApp API Error: {
+Au caractère Ligne:1 : 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WhatsApp 
+API E    rror: {:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  error: {
+    message: 'Error validating access token: Session 
+has expired on Tuesday, 03-Mar-26 11:00:00 PST. The 
+current time is Tuesday, 03-Mar-26 11:16:18 PST.',
+    type: 'OAuthException',
+    code: 190,
+    error_subcode: 463,
+    fbtrace_id: 'AwLPi5J4Q_T4AUppEtk-JUG'
+  }
+}
+WhatsApp Integration Error: Error: Failed to send 
+WhatsApp message: Request failed with status code 401
+    at WhatsAppService.<anonymous> (C:\Users\HP\Desktop\
+whatsflow-crm-dashboard-main\backend\node-api\dist\src\s
+ervices\whatsapp.js:55:23)
+    at Generator.throw (<anonymous>)
+    at rejected (C:\Users\HP\Desktop\whatsflow-crm-dashb
+oard-main\backend\node-api\dist\src\services\whatsapp.js
+:6:65)
+    at process.processTicksAndRejections 
+(node:internal/process/task_queues:103:5)
+WhatsApp API Error: {
+  error: {
+    message: 'Error validating access token: Session 
+has expired on Tuesday, 03-Mar-26 11:00:00 PST. The 
+current time is Tuesday, 03-Mar-26 11:16:22 PST.',
+    type: 'OAuthException',
+    code: 190,
+    error_subcode: 463,
+    fbtrace_id: 'A_DUTnKXOpXhXSJvG-sgR-v'
+  }
+}
+WhatsApp Integration Error: Error: Failed to send 
+WhatsApp message: Request failed with status code 401
+    at WhatsAppService.<anonymous> (C:\Users\HP\Desktop\
+whatsflow-crm-dashboard-main\backend\node-api\dist\src\s
+ervices\whatsapp.js:55:23)
+    at Generator.throw (<anonymous>)
+    at rejected (C:\Users\HP\Desktop\whatsflow-crm-dashb
+oard-main\backend\node-api\dist\src\services\whatsapp.js
+:6:65)
+    at process.processTicksAndRejections 
+(node:internal/process/task_queues:103:5)

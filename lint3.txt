@@ -1,0 +1,49 @@
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\backend\node-api\src\routes\messages.ts
+  148:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\backend\node-api\src\routes\webhooks.ts
+   9:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\backend\node-api\src\services\whatsapp.ts
+  47:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\landing\Pricing.tsx
+  39:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\landing\UseCases.tsx
+  38:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\badge.tsx
+  29:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\button.tsx
+  47:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\form.tsx
+  129:10  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\navigation-menu.tsx
+  111:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\sidebar.tsx
+  636:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\sonner.tsx
+  27:19  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\components\ui\toggle.tsx
+  37:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\context\RiskContext.tsx
+  33:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\HP\Desktop\whatsflow-crm-dashboard-main\src\main.tsx
+  9:9  error  'url' is never reassigned. Use 'const' instead  prefer-const
+
+✖ 17 problems (9 errors, 8 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

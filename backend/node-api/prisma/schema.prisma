@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String    @default("Agent") // Admin, Agent, Viewer
+  teamId           Int?
+  team             Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime  @default(now())
+  settings         Settings?
+  contacts         Contact[]
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String
+  members   User[]
+  createdAt DateTime @default(now())
+  whatsappPhoneNumberId String?
+  contacts         Contact[]
+  messages         Message[]
+  campaigns        Campaign[]
+  automationFlows  AutomationFlow[]
+  messageTemplates MessageTemplate[]
+  followUpRules    FollowUpRule[]
+  knowledgeDocs    KnowledgeDoc[]
+  tags             Tag[]
+  automationLogs   AutomationLog[]
+  callLogs         CallLog[]
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  name        String
+  phone       String
+  email       String?
+  avatar      String?
+  lastMessage String?
+  timestamp   DateTime  @default(now())
+  unread      Int       @default(0)
+  status      String
+  totalSpent  Float     @default(0)
+  notes       String?
+  orderStatus String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  reliability Int       @default(10)
+  isAiActive  Boolean   @default(true)
+  teamId      Int?
+  team        Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  assignedToId Int?
+  assignedTo   User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages    Message[]
+  tags        ContactTag[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  text           String
+  sent           Boolean  @default(false)
+  timestamp      DateTime @default(now())
+  contactId      String
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  attachmentUrl  String?
+  attachmentType String?
+  attachmentName String?
+  teamId         Int?
+  team           Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model Settings {
+  id                   Int     @id @default(autoincrement())
+  businessName         String  @default("My Business")
+  businessPhone        String  @default("+212 600000000")
+  currency             String  @default("MAD")
+  timezone             String  @default("Africa/Casablanca")
+  language             String  @default("en")
+  emailNotifications   Boolean @default(true)
+  smsNotifications     Boolean @default(false)
+  desktopNotifications Boolean @default(true)
+  orderAlerts          Boolean @default(true)
+  userId               Int     @unique
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Campaign {
+  id          Int      @id @default(autoincrement())
+  name        String
+  segment     String
+  message     String
+  status      String   @default("Pending")
+  reach       Int      @default(0)
+  opens       Int      @default(0)
+  clicks      Int      @default(0)
+  responses   Int      @default(0)
+  scheduledAt DateTime?
+  createdAt   DateTime @default(now())
+  teamId      Int?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model FollowUpRule {
+  id          Int      @id @default(autoincrement())
+  name        String
+  triggerType String
+  delayHours  Int
+  actionText  String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  teamId      Int?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model KnowledgeDoc {
+  id        Int      @id @default(autoincrement())
+  title     String
+  type      String
+  content   String?
+  fileUrl   String?
+  createdAt DateTime @default(now())
+  teamId    Int?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model AutomationFlow {
+  id          Int      @id @default(autoincrement())
+  name        String
+  triggerType String
+  actionType  String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  teamId      Int?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model Tag {
+  id        Int          @id @default(autoincrement())
+  name      String       @unique
+  color     String       @default("#6366f1")
+  createdAt DateTime     @default(now())
+  teamId    Int?
+  team      Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  contacts  ContactTag[]
+}
+
+model ContactTag {
+  contactId String
+  tagId     Int
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+}
+
+model MessageTemplate {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  teamId    Int?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model AutomationLog {
+  id         Int      @id @default(autoincrement())
+  ruleType   String   // "followup" | "automation"
+  ruleId     Int
+  ruleName   String
+  contactId  String?
+  status     String   // "success" | "failed" | "skipped"
+  message    String
+  createdAt  DateTime @default(now())
+  teamId     Int?
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model CallLog {
+  id          Int      @id @default(autoincrement())
+  contactId   String?
+  phoneNumber String
+  direction   String   // "outbound" | "inbound"
+  status      String   // "completed" | "failed" | "no-answer"
+  duration    Int?     // duration in seconds
+  recordingUrl String?
+  createdAt   DateTime @default(now())
+  teamId      Int?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
