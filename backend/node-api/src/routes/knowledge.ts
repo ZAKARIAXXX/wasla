@@ -29,7 +29,7 @@ const upload = multer({ storage: storage });
 router.get('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        const docs = await prisma.knowledgeDoc.findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
+        const docs = await (prisma.knowledgeDoc as any).findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
         res.json(docs);
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });

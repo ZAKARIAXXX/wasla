@@ -9,18 +9,18 @@ const router = Router();
 router.get('/', authenticateToken, enforceTenancy, async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        const calls = await prisma.callLog.findMany({ 
+        const calls = await (prisma.callLog as any).findMany({ 
             where: { teamId },
             orderBy: { createdAt: 'desc' },
-            take: 50 // Limit to recent 50 for now
+            take: 50
         });
         
         // Also compute basic stats for the frontend
-        const totalCalls = await prisma.callLog.count({ where: { teamId } });
-        const completedCalls = await prisma.callLog.count({ where: { teamId, status: 'completed' }});
+        const totalCalls = await (prisma.callLog as any).count({ where: { teamId } });
+        const completedCalls = await (prisma.callLog as any).count({ where: { teamId, status: 'completed' }});
         const confirmationRate = totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0;
         
-        const durationResult = await prisma.callLog.aggregate({
+        const durationResult = await (prisma.callLog as any).aggregate({
             _avg: { duration: true },
             where: { teamId, status: 'completed', duration: { not: null } }
         });

@@ -11,7 +11,7 @@ router.use(enforceTenancy);
 router.get('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        const templates = await prisma.messageTemplate.findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
+        const templates = await (prisma.messageTemplate as any).findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
         res.json(templates);
     } catch {
         res.status(500).json({ error: 'Failed to fetch templates' });

@@ -11,7 +11,7 @@ router.use(enforceTenancy);
 router.get('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        const tags = await prisma.tag.findMany({ where: { teamId }, orderBy: { name: 'asc' } });
+        const tags = await (prisma.tag as any).findMany({ where: { teamId }, orderBy: { name: 'asc' } });
         res.json(tags);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch tags' });

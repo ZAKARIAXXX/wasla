@@ -10,7 +10,7 @@ router.use(enforceTenancy);
 router.get('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        const rules = await prisma.followUpRule.findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
+        const rules = await (prisma.followUpRule as any).findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
         res.json(rules);
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
