@@ -19,13 +19,13 @@ router.get('/', async (req: Request, res: Response) => {
         const where = ruleType ? { ruleType, teamId } : { teamId };
 
         const [logs, total] = await Promise.all([
-            prisma.automationLog.findMany({
+            (prisma.automationLog as any).findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit
             }),
-            prisma.automationLog.count({ where })
+            (prisma.automationLog as any).count({ where })
         ]);
 
         res.json({ logs, total, page, pages: Math.ceil(total / limit) });
@@ -39,7 +39,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.delete('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
-        await prisma.automationLog.deleteMany({ where: { teamId } });
+        await (prisma.automationLog as any).deleteMany({ where: { teamId } });
         res.json({ message: 'Logs cleared' });
     } catch {
         res.status(500).json({ error: 'Failed to clear logs' });

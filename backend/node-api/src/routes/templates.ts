@@ -8,7 +8,7 @@ router.use(authenticateToken);
 router.use(enforceTenancy);
 
 // GET all templates
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
         const templates = await prisma.messageTemplate.findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
@@ -31,10 +31,11 @@ router.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE template
+// DELETE template (scoped to team)
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        await prisma.messageTemplate.delete({ where: { id: parseInt(req.params.id) } });
+        const teamId = (req as any).user?.teamId as number;
+        await (prisma.messageTemplate as any).deleteMany({ where: { id: parseInt(req.params.id), teamId } });
         res.json({ message: 'Template deleted' });
     } catch {
         res.status(500).json({ error: 'Failed to delete template' });

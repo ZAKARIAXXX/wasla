@@ -8,7 +8,7 @@ router.use(authenticateToken);
 router.use(enforceTenancy);
 
 // GET all tags
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
         const tags = await prisma.tag.findMany({ where: { teamId }, orderBy: { name: 'asc' } });
@@ -32,10 +32,11 @@ router.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE tag
+// DELETE tag (scoped to team)
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        await prisma.tag.delete({ where: { id: parseInt(req.params.id) } });
+        const teamId = (req as any).user?.teamId as number;
+        await (prisma.tag as any).deleteMany({ where: { id: parseInt(req.params.id), teamId } });
         res.json({ message: 'Tag deleted' });
     } catch {
         res.status(500).json({ error: 'Failed to delete tag' });
@@ -85,12 +86,13 @@ router.post('/bulk', async (req: Request, res: Response) => {
     }
 });
 
-// POST bulk delete contacts
+// POST bulk delete contacts (scoped to team)
 router.post('/bulk-delete', async (req: Request, res: Response) => {
     try {
         const { contactIds } = req.body;
+        const teamId = (req as any).user?.teamId as number;
         if (!Array.isArray(contactIds)) return res.status(400).json({ error: 'Invalid payload' });
-        await prisma.contact.deleteMany({ where: { id: { in: contactIds } } });
+        await prisma.contact.deleteMany({ where: { id: { in: contactIds }, teamId } });
         res.json({ message: `Deleted ${contactIds.length} contacts` });
     } catch {
         res.status(500).json({ error: 'Failed to bulk delete' });

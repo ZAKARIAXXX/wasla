@@ -128,7 +128,7 @@ app.post('/api/login', async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        const token = generateToken({ id: user.id, email: user.email, role: user.role, teamId: user.teamId ?? undefined });
+        const token = generateToken({ id: user.id, email: user.email, role: user.role, teamId: user.teamId! });
         return res.json({
             token,
             user: {

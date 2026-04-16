@@ -57,7 +57,7 @@ router.post('/signup', async (req: Request, res: Response) => {
             }
         });
 
-        const token = generateToken({ id: user.id, email: user.email, role: user.role, teamId: user.teamId ?? undefined });
+        const token = generateToken({ id: user.id, email: user.email, role: user.role, teamId: user.teamId! });
 
         res.status(201).json({
             token,
