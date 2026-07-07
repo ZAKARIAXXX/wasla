@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 import { contactSchema, contactUpdateSchema } from '../utils/validation';
 
@@ -68,7 +68,7 @@ router.post('/import', async (req: Request, res: Response) => {
                         name: c.name || 'Unknown',
                         phone: String(c.phone || ''),
                         email: c.email || null,
-                        status: c.status || 'new-order',
+                        status: c.status || 'lead',
                         totalSpent: Number(c.totalSpent) || 0,
                         teamId
                     }
@@ -106,7 +106,7 @@ router.post('/', async (req: Request, res: Response) => {
             data: {
                 name,
                 phone,
-                status: status || 'new-order',
+                status: status || 'lead',
                 totalSpent: totalSpent || 0,
                 reliability: reliability || 10,
                 teamId
@@ -174,7 +174,8 @@ router.get('/:id', async (req: Request, res: Response) => {
     try {
         const teamId = (req as any).user?.teamId as number;
         const contact = await prisma.contact.findUnique({
-            where: { id: req.params.id }
+            where: { id: req.params.id },
+            include: { assignedTo: { select: { id: true, name: true, email: true } } }
         });
         if (!contact || contact.teamId !== teamId) {
             return res.status(404).json({ error: 'Contact not found' });
@@ -187,9 +188,15 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE contact
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
+        const role = req.user!.role;
+
+        if (role === 'Viewer' || role === 'Agent') {
+            return res.status(403).json({ error: 'Forbidden: Only Admins can delete contacts' });
+        }
+
         const contact = await prisma.contact.findUnique({ where: { id: req.params.id } });
         if (!contact || contact.teamId !== teamId) {
             return res.status(404).json({ error: 'Contact not found' });
@@ -203,8 +210,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // PUT update contact
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: AuthRequest, res: Response) => {
     try {
+        const teamId = req.user!.teamId;
+        const role = req.user!.role;
+        const userId = req.user!.id;
+
+        if (role === 'Viewer') {
+            return res.status(403).json({ error: 'Forbidden: Viewers cannot modify contacts' });
+        }
+
         const validation = contactUpdateSchema.safeParse(req.body);
         if (!validation.success) {
             return res.status(400).json({ 
@@ -227,9 +242,17 @@ router.put('/:id', async (req: Request, res: Response) => {
         if (unread !== undefined) updateData.unread = unread;
         if (assignedToId !== undefined) updateData.assignedToId = assignedToId;
 
+        const existing = await prisma.contact.findFirst({ where: { id: req.params.id, teamId } });
+        if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+        if (role === 'Agent' && existing.assignedToId !== null && existing.assignedToId !== userId) {
+            return res.status(403).json({ error: 'Forbidden: You cannot modify a contact assigned to another agent' });
+        }
+
         const contact = await prisma.contact.update({
             where: { id: req.params.id },
-            data: updateData
+            data: updateData,
+            include: { assignedTo: { select: { id: true, name: true, email: true } } }
         });
 
         const io = req.app.get('io');
@@ -243,13 +266,62 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// POST manually assign
-router.post('/:id/assign', async (req: Request, res: Response) => {
+// POST move contact pipeline stage
+router.post('/:id/move', async (req: AuthRequest, res: Response) => {
     try {
-        const userId = req.body.userId || (req as any).user?.id;
+        const teamId = req.user!.teamId;
+        const role = req.user!.role;
+        const userId = req.user!.id;
+        const { status, orderStatus } = req.body;
+
+        if (role === 'Viewer') {
+            return res.status(403).json({ error: 'Forbidden: Viewers cannot move contacts' });
+        }
+
+        if (!status) {
+            return res.status(400).json({ error: 'Validation failed: status is required' });
+        }
+
+        const existing = await prisma.contact.findFirst({ where: { id: req.params.id, teamId } });
+        if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+        if (role === 'Agent' && existing.assignedToId !== null && existing.assignedToId !== userId) {
+            return res.status(403).json({ error: 'Forbidden: You cannot move a contact assigned to another agent' });
+        }
+
+        const contact = await prisma.contact.update({
+            where: { id: req.params.id },
+            data: { status, orderStatus },
+            include: { assignedTo: { select: { id: true, name: true, email: true } } }
+        });
+
+        const io = req.app.get('io');
+        if (io) io.to(`team:${teamId}`).emit('contactUpdated', contact);
+
+        res.json(contact);
+    } catch (error) {
+        console.error('Error moving contact:', error);
+        res.status(500).json({ error: 'Failed to move contact' });
+    }
+});
+
+// POST manually assign
+router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
+    try {
+        const teamId = req.user!.teamId;
+        const role = req.user!.role;
+        const currentUserId = req.user!.id;
+        const userId = req.body.userId || currentUserId;
         
-        if (!userId) {
-            return res.status(401).json({ error: 'User ID required' });
+        if (role === 'Viewer') {
+            return res.status(403).json({ error: 'Forbidden: Viewers cannot assign contacts' });
+        }
+
+        const existing = await prisma.contact.findFirst({ where: { id: req.params.id, teamId } });
+        if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+        if (role === 'Agent' && existing.assignedToId !== null && existing.assignedToId !== currentUserId) {
+            return res.status(403).json({ error: 'Forbidden: You cannot assign a contact belonging to another agent' });
         }
 
         const updatedContact = await prisma.contact.update({
@@ -270,8 +342,23 @@ router.post('/:id/assign', async (req: Request, res: Response) => {
 });
 
 // POST unclaim contact
-router.post('/:id/unclaim', async (req: Request, res: Response) => {
+router.post('/:id/unclaim', async (req: AuthRequest, res: Response) => {
     try {
+        const teamId = req.user!.teamId;
+        const role = req.user!.role;
+        const userId = req.user!.id;
+
+        if (role === 'Viewer') {
+            return res.status(403).json({ error: 'Forbidden: Viewers cannot unclaim contacts' });
+        }
+
+        const existing = await prisma.contact.findFirst({ where: { id: req.params.id, teamId } });
+        if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+        if (role === 'Agent' && existing.assignedToId !== null && existing.assignedToId !== userId) {
+            return res.status(403).json({ error: 'Forbidden: You cannot unclaim a contact assigned to another agent' });
+        }
+
         const updatedContact = await prisma.contact.update({
             where: { id: req.params.id },
             data: { assignedToId: null },

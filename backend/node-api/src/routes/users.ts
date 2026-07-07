@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 
 const router = Router();
@@ -9,9 +9,9 @@ router.use(authenticateToken);
 router.use(enforceTenancy);
 
 // GET all users in the same team
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         const users = await prisma.user.findMany({
             where: { teamId },
             select: {
@@ -30,9 +30,9 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET workload stats for all users in the same team
-router.get('/workload', async (req: Request, res: Response) => {
+router.get('/workload', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         const users = await prisma.user.findMany({
             where: { teamId },
             select: {
@@ -68,10 +68,10 @@ router.get('/workload', async (req: Request, res: Response) => {
 });
 
 // POST invite new team member — auto-assigns to requester's team
-router.post('/invite', requireRole('Admin'), async (req: Request, res: Response) => {
+router.post('/invite', requireRole('Admin'), async (req: AuthRequest, res: Response) => {
     try {
         const { email, name } = req.body;
-        const teamId = (req as any).user?.teamId as number | undefined;
+        const teamId = req.user?.teamId;
         
         if (!email) {
             return res.status(400).json({ error: 'Email is required' });
@@ -109,11 +109,11 @@ router.post('/invite', requireRole('Admin'), async (req: Request, res: Response)
 });
 
 // DELETE remove team member
-router.delete('/:id', requireRole('Admin'), async (req: Request, res: Response) => {
+router.delete('/:id', requireRole('Admin'), async (req: AuthRequest, res: Response) => {
     try {
         const userId = parseInt(req.params.id);
-        const currentUserId = (req as any).user?.id;
-        const currentTeamId = (req as any).user?.teamId as number;
+        const currentUserId = req.user?.id;
+        const currentTeamId = req.user!.teamId;
         
         if (userId === currentUserId) {
             return res.status(400).json({ error: 'Cannot remove yourself' });

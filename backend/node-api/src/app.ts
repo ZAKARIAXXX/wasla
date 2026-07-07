@@ -128,7 +128,7 @@ app.post('/api/login', async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        const token = generateToken({ id: user.id, email: user.email, role: user.role, teamId: user.teamId! });
+        const token = generateToken({ id: user.id, email: user.email, name: user.name || undefined, role: user.role, teamId: user.teamId! });
         return res.json({
             token,
             user: {
@@ -156,8 +156,48 @@ io.on('connection', (socket) => {
     }
     console.log('User connected:', socket.id, 'teamId:', user?.teamId);
 
+    // Typing Indicators
+    socket.on('typing_start', (contactId: string) => {
+        if (user?.teamId) {
+            socket.to(`team:${user.teamId}`).emit('teammate_typing', {
+                contactId,
+                userId: user.id,
+                userName: user.name
+            });
+        }
+    });
+
+    socket.on('typing_end', (contactId: string) => {
+        if (user?.teamId) {
+            socket.to(`team:${user.teamId}`).emit('teammate_stop_typing', {
+                contactId,
+                userId: user.id
+            });
+        }
+    });
+
+    // Presence: Who is looking at which contact
+    socket.on('viewing_contact', (contactId: string | null) => {
+        if (user?.teamId) {
+            socket.to(`team:${user.teamId}`).emit('teammate_viewing', {
+                contactId,
+                userId: user.id,
+                userName: user.name
+            });
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+        if (user?.teamId) {
+            socket.to(`team:${user.teamId}`).emit('teammate_stop_typing', {
+                userId: user.id
+            });
+            socket.to(`team:${user.teamId}`).emit('teammate_viewing', {
+                contactId: null,
+                userId: user.id
+            });
+        }
     });
 });
 

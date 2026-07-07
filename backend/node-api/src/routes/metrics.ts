@@ -1,14 +1,14 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 
 const router = Router();
 
 // Dashboard aggregation with optional date range — tenant-scoped
-router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request, res: Response) => {
+router.get('/dashboard', authenticateToken, enforceTenancy, async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
 
         // Parse date range (defaults to last 7 days)
         const to = req.query.to ? new Date(req.query.to as string) : new Date();
@@ -23,13 +23,13 @@ router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request,
         const dateFilter = { gte: from, lte: to };
         const teamFilter = { teamId };
 
-        // 1. Total Conversations in range
-        const totalConversations = await (prisma.contact as any).count({
-            where: { ...teamFilter, timestamp: dateFilter }
+        // 1. Total Conversations — all contacts for this team (not date-filtered)
+        const totalConversations = await prisma.contact.count({
+            where: { ...teamFilter }
         });
 
         // 2. Avg Response Time — real calculation based on message timestamps
-        const contacts = await (prisma.contact as any).findMany({
+        const contacts = await prisma.contact.findMany({
             where: { ...teamFilter, timestamp: dateFilter },
             include: { messages: { orderBy: { timestamp: 'asc' }, take: 2 } }
         });
@@ -60,7 +60,7 @@ router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request,
         }
 
         // 3. Revenue = sum of totalSpent for converted contacts in range
-        const conversionsResult = await (prisma.contact as any).aggregate({
+        const conversionsResult = await prisma.contact.aggregate({
             _sum: { totalSpent: true },
             where: {
                 ...teamFilter,
@@ -71,7 +71,7 @@ router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request,
         const estConversions = Math.round(conversionsResult._sum.totalSpent || 0);
 
         // 4. Missed Opportunities (pending > 48h, within range)
-        const missedOpportunities = await (prisma.contact as any).count({
+        const missedOpportunities = await prisma.contact.count({
             where: {
                 ...teamFilter,
                 timestamp: { gte: from, lte: new Date(to.getTime() - 2 * 24 * 60 * 60 * 1000) },
@@ -89,7 +89,7 @@ router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request,
             const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
             const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999);
 
-            const daySum = await (prisma.contact as any).aggregate({
+            const daySum = await prisma.contact.aggregate({
                 _sum: { totalSpent: true },
                 where: { ...teamFilter, timestamp: { gte: startOfDay, lte: endOfDay } }
             });
@@ -109,10 +109,10 @@ router.get('/dashboard', authenticateToken, enforceTenancy, async (req: Request,
 });
 
 // Savings calculation (team-scoped)
-router.get('/savings', authenticateToken, enforceTenancy, async (req: Request, res: Response) => {
+router.get('/savings', authenticateToken, enforceTenancy, async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
-        const totalOrders = await (prisma.contact as any).count({ where: { teamId } });
+        const teamId = req.user!.teamId;
+        const totalOrders = await prisma.contact.count({ where: { teamId } });
         const SAVINGS_PER_ORDER = 2.00;
         res.json({ totalSaved: totalOrders * SAVINGS_PER_ORDER, savedPerOrder: SAVINGS_PER_ORDER, totalOrders });
     } catch (error) {

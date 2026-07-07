@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 
 const router = Router();
@@ -8,9 +8,9 @@ router.use(authenticateToken);
 router.use(enforceTenancy);
 
 // GET the current user's team
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         const team = await prisma.team.findUnique({
             where: { id: teamId },
             include: {
@@ -27,7 +27,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST create team
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
     try {
         const { name } = req.body;
         if (!name) return res.status(400).json({ error: 'Team name is required' });

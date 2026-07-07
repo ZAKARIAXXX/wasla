@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 const Login = () => {
-    const [email, setEmail] = useState("admin@wasla.com");
-    const [password, setPassword] = useState("admin123");
+    const [email, setEmail] = useState("demo@wasla.com");
+    const [password, setPassword] = useState("demo123");
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -148,7 +148,7 @@ const Login = () => {
                         <CardContent className="space-y-4">
                             <div className="rounded-md bg-muted/50 border border-border/50 px-3 py-2 text-xs text-muted-foreground">
                                 <span className="font-medium">Demo credentials:</span>{" "}
-                                admin@wasla.com / admin123
+                                demo@wasla.com / demo123
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="email">Email</Label>

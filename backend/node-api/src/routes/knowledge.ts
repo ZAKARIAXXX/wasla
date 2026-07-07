@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 import multer from 'multer';
 import path from 'path';
@@ -26,20 +26,20 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
-        const docs = await (prisma.knowledgeDoc as any).findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
+        const teamId = req.user!.teamId;
+        const docs = await prisma.knowledgeDoc.findMany({ where: { teamId }, orderBy: { createdAt: 'desc' } });
         res.json(docs);
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/upload', upload.single('file'), async (req: AuthRequest, res: Response) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file provided' });
         const { title, type } = req.body;
         const fileUrl = `/uploads/knowledge/${req.file.filename}`;
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         
         const doc = await prisma.knowledgeDoc.create({
             data: { title: title || req.file.originalname, type: type || 'file', fileUrl, teamId }
@@ -50,10 +50,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 });
 
-router.post('/text', async (req: Request, res: Response) => {
+router.post('/text', async (req: AuthRequest, res: Response) => {
     try {
         const { title, content } = req.body;
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         const doc = await prisma.knowledgeDoc.create({
             data: { title, content, type: 'text', teamId }
         });
@@ -63,9 +63,12 @@ router.post('/text', async (req: Request, res: Response) => {
     }
 });
 
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
-        await prisma.knowledgeDoc.delete({ where: { id: parseInt(req.params.id) } });
+        const teamId = req.user!.teamId;
+        await prisma.knowledgeDoc.deleteMany({ 
+            where: { id: parseInt(req.params.id), teamId } 
+        });
         res.json({ success: true });
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });

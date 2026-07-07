@@ -1,13 +1,12 @@
 import { Helmet } from "react-helmet-async";
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
-import { SocialProof } from "@/components/landing/SocialProof";
 import { Stats } from "@/components/landing/Stats";
+import { Testimonials } from "@/components/landing/Testimonials";
 import { Features } from "@/components/landing/Features";
 import { ProductTour } from "@/components/landing/ProductTour";
 import { UseCases } from "@/components/landing/UseCases";
-import { Integrations } from "@/components/landing/Integrations";
-import { Testimonials } from "@/components/landing/Testimonials";
+import { SocialProof } from "@/components/landing/SocialProof";
 import { Pricing } from "@/components/landing/Pricing";
 import { FAQ } from "@/components/landing/FAQ";
 import { Security } from "@/components/landing/Security";
@@ -34,15 +33,15 @@ const Landing = () => {
           <Hero />
           <SectionDivider />
 
-          {/* 2 – Trust Strip */}
-          <SocialProof />
-          <SectionDivider />
-
-          {/* 3 – Problem Section */}
+          {/* 2 – Pain First: Why manual WhatsApp is killing growth */}
           <Stats />
           <SectionDivider />
 
-          {/* 4 – Features */}
+          {/* 3 – Solution: Meet Karima AI — speaks Darija */}
+          <Testimonials />
+          <SectionDivider />
+
+          {/* 4 – Before / After comparison */}
           <Features />
           <SectionDivider />
 
@@ -50,26 +49,22 @@ const Landing = () => {
           <ProductTour />
           <SectionDivider />
 
-          {/* 6 – Use Cases */}
+          {/* 6 – Real Industry Cases */}
           <UseCases />
           <SectionDivider />
 
-          {/* 7 – Benefits + Why Not Manual */}
-          <Integrations />
+          {/* 7 – Social Proof / Trust Strip */}
+          <SocialProof />
           <SectionDivider />
 
-          {/* 8 – AI Section */}
-          <Testimonials />
-          <SectionDivider />
-
-          {/* 9 – Pricing */}
+          {/* 8 – Pricing */}
           <Pricing />
           <SectionDivider />
 
-          {/* 10 – FAQ */}
+          {/* 9 – FAQ */}
           <FAQ />
 
-          {/* 11 – Final CTA */}
+          {/* 10 – Final CTA */}
           <Security />
         </main>
         <Footer />

@@ -1,26 +1,22 @@
-import { Inbox, UserCircle2, Bell, GitBranch, Bot, Zap } from "lucide-react";
 import { motion } from "framer-motion";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { X, CheckCircle2 } from "lucide-react";
+
+// Before/After comparison table — self-contained, no i18n needed
+const ROWS = [
+  { before: "3 hours/day on WhatsApp", after: "10 minutes/day" },
+  { before: "Miss messages at night", after: "Karima replies 24/7" },
+  { before: "Lose clients to faster competitors", after: "First to respond — every time" },
+  { before: "40% return rate from unconfirmed COD", after: "Auto-confirmation in < 60 seconds" },
+  { before: "Forget to follow up", after: "Auto reminders on autopilot" },
+  { before: "No visibility on your team", after: "Live inbox with agent assignments" },
+];
 
 export const Features = () => {
-  const { t } = useLanguage();
-  const featureItems = t('features.items') as unknown as { title: string, desc: string, support: string }[];
-  
-  const iconMap = [Inbox, UserCircle2, Bell, GitBranch, Bot, Zap];
-  const accentMap = [
-    { accent: "from-emerald-500/10 to-emerald-500/5", iconBg: "bg-emerald-50 text-emerald-600" },
-    { accent: "from-sky-500/10 to-sky-500/5", iconBg: "bg-sky-50 text-sky-600" },
-    { accent: "from-amber-500/10 to-amber-500/5", iconBg: "bg-amber-50 text-amber-600" },
-    { accent: "from-violet-500/10 to-violet-500/5", iconBg: "bg-violet-50 text-violet-600" },
-    { accent: "from-rose-500/10 to-rose-500/5", iconBg: "bg-rose-50 text-rose-600" },
-    { accent: "from-emerald-500/10 to-emerald-500/5", iconBg: "bg-emerald-50 text-emerald-600" },
-  ];
-
   return (
     <section id="features" className="py-28 bg-stone-50">
-      <div className="container mx-auto px-6 max-w-7xl">
+      <div className="container mx-auto px-6 max-w-5xl">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-20">
+        <div className="text-center mb-16">
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -28,7 +24,7 @@ export const Features = () => {
             transition={{ duration: 0.5 }}
             className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-4"
           >
-            {t('features.eyebrow')}
+            The Real Difference
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 16 }}
@@ -37,40 +33,75 @@ export const Features = () => {
             transition={{ duration: 0.6, delay: 0.05 }}
             className="text-4xl lg:text-5xl font-black mb-5 text-stone-900 tracking-tight leading-tight"
           >
-            {t('features.title')}
+            Life before Wasla vs.{" "}
+            <span className="text-emerald-600">life after</span>
           </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-lg text-stone-500 max-w-2xl mx-auto"
+          >
+            Every Moroccan business we talk to describes the same pain. Here's what changes on day one.
+          </motion.p>
         </div>
 
-        {/* Feature grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featureItems.map((feature, i) => {
-            const Icon = iconMap[i];
-            const { accent, iconBg } = accentMap[i];
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.55, delay: i * 0.08 }}
-                whileHover={{ y: -6, transition: { duration: 0.25 } }}
-                className="group relative p-7 rounded-2xl bg-white border border-stone-200/70 hover:border-stone-300 hover:shadow-xl hover:shadow-stone-200/60 transition-all duration-300 overflow-hidden"
-              >
-                {/* Gradient tint on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+        {/* Comparison table */}
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="bg-white rounded-3xl border border-stone-200 shadow-xl overflow-hidden"
+        >
+          {/* Column headers */}
+          <div className="grid grid-cols-2">
+            <div className="bg-rose-50 border-b border-r border-stone-200 px-6 py-4 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-rose-400">Without Wasla</p>
+                <p className="text-xs text-stone-400">Manual & exhausting</p>
+              </div>
+            </div>
+            <div className="bg-emerald-50 border-b border-stone-200 px-6 py-4 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">With Wasla</p>
+                <p className="text-xs text-stone-400">Automated & effortless</p>
+              </div>
+            </div>
+          </div>
 
-                <div className="relative z-10">
-                  <div className={`w-11 h-11 ${iconBg} rounded-xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-lg font-bold mb-2 text-stone-900">{feature.title}</h3>
-                  <p className="text-stone-600 text-sm leading-relaxed mb-3">{feature.desc}</p>
-                  <p className="text-stone-400 text-xs leading-relaxed">{feature.support}</p>
+          {/* Rows */}
+          {ROWS.map((row, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -12 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.07 }}
+              className="grid grid-cols-2 border-b border-stone-100 last:border-b-0"
+            >
+              <div className="px-6 py-4 border-r border-stone-100 flex items-center gap-3 bg-rose-50/30">
+                <div className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                  <X className="w-3 h-3 text-rose-400" />
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                <p className="text-sm text-stone-600 font-medium">{row.before}</p>
+              </div>
+              <div className="px-6 py-4 flex items-center gap-3 bg-emerald-50/20">
+                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                </div>
+                <p className="text-sm text-stone-800 font-semibold">{row.after}</p>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );

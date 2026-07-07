@@ -16,11 +16,13 @@ interface Contact {
   lastMessage?: string;
   timestamp: string;
   unread: number;
-  status: "new-order" | "pending" | "preparing" | "delivered" | "paid";
+  status: "lead" | "engaged" | "qualified" | "won" | "lost";
   totalSpent: number;
   notes?: string;
   orderStatus?: string;
   reliability?: number;
+  assignedToId?: number | null;
+  assignedTo?: { id: number; name: string; email: string };
 }
 
 interface KanbanColumn {
@@ -31,10 +33,11 @@ interface KanbanColumn {
 }
 
 const columns: KanbanColumn[] = [
-  { id: "new", title: "New Orders", color: "bg-badge-new", statuses: ["new-order"] },
-  { id: "preparing", title: "Preparing", color: "bg-badge-pending", statuses: ["pending", "preparing"] },
-  { id: "delivery", title: "Out for Delivery", color: "bg-primary", statuses: ["delivered"] },
-  { id: "paid", title: "Paid / Completed", color: "bg-badge-success", statuses: ["paid"] },
+  { id: "lead", title: "New Lead", color: "bg-badge-new", statuses: ["lead"] },
+  { id: "engaged", title: "Engaged", color: "bg-badge-pending", statuses: ["engaged"] },
+  { id: "qualified", title: "Qualified Proposal", color: "bg-primary", statuses: ["qualified"] },
+  { id: "won", title: "Closed Won", color: "bg-badge-success", statuses: ["won"] },
+  { id: "lost", title: "Closed Lost", color: "bg-rose-500", statuses: ["lost"] },
 ];
 
 export function KanbanBoard() {
@@ -42,29 +45,23 @@ export function KanbanBoard() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const { tiers } = useRiskContext();
-  const [savings, setSavings] = useState<{ totalSaved: number; savedPerOrder: number } | null>(null);
+  const [pipelineTotal, setPipelineTotal] = useState(0);
+  const [activePipelineVal, setActivePipelineVal] = useState(0);
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
+  // Calculate Pipeline Metrics instead of Savings
   useEffect(() => {
-    const fetchSavings = async () => {
-      try {
-        const res = await fetch('/api/metrics/savings', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setSavings(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch savings", error);
+    let activeVal = 0;
+    let totalVal = 0;
+    cards.forEach(c => {
+      totalVal += c.totalSpent;
+      if (c.status !== 'won' && c.status !== 'lost') {
+        activeVal += c.totalSpent;
       }
-    }
-    fetchSavings();
-    // Poll for updates every 15 seconds
-    const interval = setInterval(fetchSavings, 15000);
-    return () => clearInterval(interval);
-  }, []);
+    });
+    setPipelineTotal(totalVal);
+    setActivePipelineVal(activeVal);
+  }, [cards]);
 
   // Fetch contacts from API and handle Real-Time
   useEffect(() => {
@@ -85,7 +82,9 @@ export function KanbanBoard() {
 
     // Socket.io real-time — authenticated and tenant-scoped
     const token = localStorage.getItem('authToken');
-    const socket = io('http://localhost:3000', {
+    const env = (import.meta as any).env || {};
+    const socketIoUrl = env.VITE_SOCKET_IO_URL || 'http://localhost:3000';
+    const socket = io(socketIoUrl, {
       path: '/socket.io',
       auth: { token }
     });
@@ -111,8 +110,8 @@ export function KanbanBoard() {
   const updateContactStatus = async (contactId: string, newStatus: Contact["status"], explicitOrderStatus?: string) => {
     try {
       const orderStatus = explicitOrderStatus || REVERSE_STATUS_MAP[newStatus];
-      const res = await fetch(`/api/contacts/${contactId}`, {
-        method: 'PUT',
+      const res = await fetch(`/api/contacts/${contactId}/move`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -149,11 +148,10 @@ export function KanbanBoard() {
       );
 
       // Update backend
-      const colTitle = columns.find((c) => c.id === columnId)?.title || "New";
-      // Map column title to internal status label if possible, or just use title
+      const colTitle = columns.find((c) => c.id === columnId)?.title || "Lead";
       let orderStatusLabel = colTitle;
-      if (colTitle === "New Orders") orderStatusLabel = "New";
-      if (colTitle === "Paid / Completed") orderStatusLabel = "Paid";
+      if (colTitle === "New Lead") orderStatusLabel = "Lead";
+      if (colTitle === "Closed Won") orderStatusLabel = "Won";
 
       updateContactStatus(draggedId, newStatus, orderStatusLabel);
       setDraggedId(null);
@@ -193,7 +191,7 @@ export function KanbanBoard() {
   };
 
   return (
-    <div className="flex h-screen flex-1 flex-col bg-surface">
+    <div className="flex h-screen flex-1 flex-col bg-surface overflow-hidden">
       {/* Header */}
       <div className="border-b border-border bg-background px-6 py-3 flex items-center justify-between">
         <div>
@@ -203,24 +201,22 @@ export function KanbanBoard() {
           </p>
         </div>
 
-        {/* Cost Savings Dashboard Widget */}
-        {savings && (
-          <div className="bg-emerald-50 border border-emerald-100 rounded-lg flex items-center gap-6 px-4 py-2 shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="bg-emerald-100 p-1.5 rounded-md text-emerald-600">
-                <TrendingDown className="h-4 w-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">Money Saved</span>
-                <span className="text-sm font-bold text-emerald-900">${savings.totalSaved.toFixed(2)}</span>
-              </div>
+        {/* Pipeline Intelligence Dashboard Widget */}
+        <div className="bg-emerald-50 border border-emerald-100 rounded-lg flex items-center gap-6 px-4 py-2 shrink-0 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="bg-emerald-100 p-1.5 rounded-md text-emerald-600">
+              <TrendingDown className="h-4 w-4 transform rotate-180" />
             </div>
-            <div className="text-right pl-4 border-l border-emerald-200">
-              <div className="text-[10px] text-emerald-600 font-medium">Per Order</div>
-              <div className="text-sm font-bold text-emerald-800">${savings.savedPerOrder.toFixed(2)}</div>
+            <div className="flex flex-col">
+              <span className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">Active Pipeline</span>
+              <span className="text-sm font-bold text-emerald-900">${activePipelineVal.toFixed(2)}</span>
             </div>
           </div>
-        )}
+          <div className="text-right pl-4 border-l border-emerald-200">
+            <div className="text-[10px] text-emerald-600 font-medium tracking-wider uppercase">Total Won & Active</div>
+            <div className="text-sm font-bold text-emerald-800">${pipelineTotal.toFixed(2)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Board */}
@@ -234,7 +230,7 @@ export function KanbanBoard() {
           return (
             <div
               key={col.id}
-              className="flex min-w-[280px] flex-col rounded-lg border border-border bg-background"
+              className="flex w-[280px] shrink-0 flex-col rounded-lg border border-border bg-background"
               onDrop={() => handleDrop(col.id)}
               onDragOver={(e) => e.preventDefault()}
             >
@@ -251,16 +247,23 @@ export function KanbanBoard() {
 
               {/* Cards */}
               <div className="flex-1 space-y-2 overflow-y-auto p-2 scrollbar-thin">
-                {colCards.map((card) => (
-                  <div
-                    key={card.id}
-                    draggable
-                    onDragStart={() => handleDragStart(card.id)}
-                    className={cn(
-                      "group cursor-grab rounded-md border border-border bg-background p-3 transition-all hover:shadow-md active:cursor-grabbing",
-                      draggedId === card.id && "opacity-50"
-                    )}
-                  >
+                {colCards.map((card) => {
+                  const isDraggable = currentUser.role === 'Admin' || (currentUser.role === 'Agent' && (!card.assignedToId || card.assignedToId === currentUser.id));
+
+                  return (
+                    <div
+                      key={card.id}
+                      draggable={isDraggable}
+                      onDragStart={(e) => {
+                          if (isDraggable) handleDragStart(card.id);
+                          else e.preventDefault();
+                      }}
+                      className={cn(
+                        "group rounded-md border border-border bg-background p-3 transition-all hover:shadow-md",
+                        isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-80",
+                        draggedId === card.id && "opacity-50"
+                      )}
+                    >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
@@ -298,7 +301,13 @@ export function KanbanBoard() {
                           <p className="text-xs text-muted-foreground">{card.phone}</p>
                         </div>
                       </div>
-                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                      {isDraggable ? (
+                          <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                      ) : (
+                          <div className="h-4 w-4 shrink-0 px-1 py-0.5 rounded-sm bg-muted text-muted-foreground flex items-center justify-center" title="Locked: You don't own this lead">
+                            <span className="text-[8px] font-bold">🔒</span>
+                          </div>
+                      )}
                     </div>
 
                     {card.lastMessage && (
@@ -328,7 +337,8 @@ export function KanbanBoard() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 {colCards.length === 0 && (
                   <div className="flex h-32 items-center justify-center rounded-md border-2 border-dashed border-border">
                     <p className="text-xs text-muted-foreground">No orders found</p>

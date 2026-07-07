@@ -6,7 +6,7 @@ export interface Contact {
   lastMessage: string;
   timestamp: string;
   unread: number;
-  status: "new-order" | "pending" | "preparing" | "delivered" | "paid";
+  status: "lead" | "engaged" | "qualified" | "won" | "lost";
   totalSpent: number;
   notes: string;
   orderStatus: string;
@@ -28,7 +28,7 @@ export const contacts: Contact[] = [
     lastMessage: "Can I get 2 chicken shawarma?",
     timestamp: "2m ago",
     unread: 3,
-    status: "new-order",
+    status: "lead",
     totalSpent: 450,
     notes: "Regular customer. Prefers extra sauce.",
     orderStatus: "New",
@@ -41,7 +41,7 @@ export const contacts: Contact[] = [
     lastMessage: "When will my order arrive?",
     timestamp: "15m ago",
     unread: 1,
-    status: "preparing",
+    status: "engaged",
     totalSpent: 1230,
     notes: "VIP customer. Always tips well.",
     orderStatus: "Preparing",
@@ -54,7 +54,7 @@ export const contacts: Contact[] = [
     lastMessage: "Thanks! Everything was great 👍",
     timestamp: "1h ago",
     unread: 0,
-    status: "delivered",
+    status: "won",
     totalSpent: 780,
     notes: "",
     orderStatus: "Delivered",
@@ -67,7 +67,7 @@ export const contacts: Contact[] = [
     lastMessage: "Do you have any vegetarian options?",
     timestamp: "2h ago",
     unread: 0,
-    status: "pending",
+    status: "engaged",
     totalSpent: 320,
     notes: "Vegetarian. Allergic to nuts.",
     orderStatus: "Pending",
@@ -80,7 +80,7 @@ export const contacts: Contact[] = [
     lastMessage: "Payment sent via CashPlus",
     timestamp: "3h ago",
     unread: 0,
-    status: "paid",
+    status: "won",
     totalSpent: 2150,
     notes: "Bulk orders for office. Invoice needed.",
     orderStatus: "Paid",
@@ -93,7 +93,7 @@ export const contacts: Contact[] = [
     lastMessage: "Can I order for tomorrow?",
     timestamp: "5h ago",
     unread: 2,
-    status: "new-order",
+    status: "lead",
     totalSpent: 560,
     notes: "Schedule orders in advance.",
     orderStatus: "New",

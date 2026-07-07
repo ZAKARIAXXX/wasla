@@ -15,7 +15,7 @@ interface Contact {
   lastMessage?: string;
   timestamp: string;
   unread: number;
-  status: "new-order" | "pending" | "preparing" | "delivered" | "paid";
+  status: "lead" | "engaged" | "qualified" | "won" | "lost";
   reliability?: number;
   totalSpent?: number;
   orderStatus?: string | null;
@@ -29,11 +29,11 @@ interface ChatListProps {
 
 function StatusBadge({ status }: { status: Contact["status"] }) {
   const statusConfig: Record<string, { label: string; className: string }> = {
-    "new-order": { label: "New Order", className: "bg-badge-new text-badge-new-foreground" },
-    pending: { label: "Pending", className: "bg-badge-pending text-badge-pending-foreground" },
-    preparing: { label: "Preparing", className: "bg-badge-pending text-badge-pending-foreground" },
-    delivered: { label: "Delivered", className: "bg-primary text-primary-foreground" },
-    paid: { label: "Paid", className: "bg-badge-success text-badge-success-foreground" },
+    "lead": { label: "Lead", className: "bg-badge-new text-badge-new-foreground" },
+    "engaged": { label: "Engaged", className: "bg-badge-pending text-badge-pending-foreground" },
+    "qualified": { label: "Qualified", className: "bg-primary text-primary-foreground" },
+    "won": { label: "Won", className: "bg-badge-success text-badge-success-foreground" },
+    "lost": { label: "Lost", className: "bg-rose-500 text-white" },
   };
   const { label, className } = statusConfig[status] ?? { label: status, className: "" };
   return (

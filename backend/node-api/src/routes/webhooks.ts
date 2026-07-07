@@ -71,7 +71,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
                             if (teamId) {
                                 io.to(`team:${teamId}`).emit('contactUpdated', updatedContact);
                             } else {
-                                io.emit('contactUpdated', updatedContact);
+                                console.warn('Stripe webhook received but no team could be mapped for contact:', contact.id);
                             }
                         }
                     } else {
@@ -116,6 +116,7 @@ router.get('/wasla-secure-webhook', whatsappGetHandler);
 const whatsappPostHandler = async (req: Request, res: Response) => {
     try {
         const body = req.body;
+        console.log('[Webhook] Incoming WhatsApp payload:', JSON.stringify(body, null, 2));
 
         if (body.object === 'whatsapp_business_account') {
             if (body.entry && body.entry[0].changes && body.entry[0].changes[0] && body.entry[0].changes[0].value.messages && body.entry[0].changes[0].value.messages[0]) {
@@ -130,13 +131,19 @@ const whatsappPostHandler = async (req: Request, res: Response) => {
                 if (text && phoneNumberId) {
                     console.log(`Received WhatsApp message from ${waId}: ${text} for metadata.phone_number_id: ${phoneNumberId}`);
 
-                    const team = await prisma.team.findFirst({
+                    let team = await prisma.team.findFirst({
                         where: { whatsappPhoneNumberId: phoneNumberId }
                     });
 
+                    // Fallback to the first available team if this is a single-tenant instance
+                    // and they haven't explicitly set their whatsappPhoneNumberId yet!
                     if (!team) {
-                        console.log(`No matching team found for WhatsApp Phone Number ID ${phoneNumberId}`);
-                        return res.status(200).send('EVENT_RECEIVED');
+                        team = await prisma.team.findFirst();
+                        
+                        if (!team) {
+                            console.log(`No matching team found for WhatsApp Phone Number ID ${phoneNumberId}`);
+                            return res.status(200).send('EVENT_RECEIVED');
+                        }
                     }
 
                     const teamId = team.id;
@@ -154,7 +161,7 @@ const whatsappPostHandler = async (req: Request, res: Response) => {
                             data: {
                                 name: name,
                                 phone: waId,
-                                status: 'new-order',
+                                status: 'lead',
                                 lastMessage: text,
                                 teamId: teamId
                             }

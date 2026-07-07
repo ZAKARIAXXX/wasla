@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Phone, MoreVertical, Search, ExternalLink, ShieldCheck, Clock, UserCheck, Bot, Video, Paperclip, Smile, Zap, DollarSign, MapPin, CheckCircle2, FileText, ChevronDown, X, BookTemplate, Plus, Trash2 } from "lucide-react";
-import { REVERSE_STATUS_MAP, InternalStatus } from "@/utils/statusUtils";
+import { Send, Phone, MoreVertical, Search, ExternalLink, ShieldCheck, Clock, UserCheck, Bot, Video, Paperclip, Smile, Zap, DollarSign, MapPin, CheckCircle2, FileText, ChevronDown, X, BookTemplate, Plus, Trash2, Edit2, Check, Copy, TrendingUp } from "lucide-react";
+import { REVERSE_STATUS_MAP, InternalStatus, OrderStatusLabel } from "@/utils/statusUtils";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { io } from "socket.io-client";
@@ -16,10 +16,11 @@ interface Contact {
   avatar?: string;
   timestamp: string;
   unread: number;
-  status: "new-order" | "pending" | "preparing" | "delivered" | "paid";
+  status: InternalStatus;
   totalSpent: number;
   isAiActive?: boolean;
   assignedTo?: { id: number; name: string; email: string };
+  reliability?: number;
 }
 
 interface Message {
@@ -30,6 +31,8 @@ interface Message {
   attachmentUrl?: string;
   attachmentType?: string;
   attachmentName?: string;
+  senderName?: string;
+  senderId?: number;
 }
 
 export function ActiveChat({ contactId }: ActiveChatProps) {
@@ -42,13 +45,21 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
   const [showAssignMenu, setShowAssignMenu] = useState(false);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isClaiming, setIsClaiming] = useState(false);
-  // Message search
+  
+  // Extra UI State
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // Templates
   const [templates, setTemplates] = useState<{ id: number; title: string; body: string }[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [newTemplateTitle, setNewTemplateTitle] = useState("");
+  const [typingAgents, setTypingAgents] = useState<Record<number, string>>({});
+  const [viewingAgents, setViewingAgents] = useState<Record<number, string>>({});
+  const socketRef = useRef<any>(null);
+  const typingTimeoutRef = useRef<any>(null);
+  const [showContactDetails, setShowContactDetails] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   useEffect(() => {
     fetch('/api/users', { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
@@ -114,16 +125,22 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
     fetchContact();
     fetchMessages();
 
-    // Connect to Socket.IO server using environment override for prod
+    // Socket.IO sync
     const env = (import.meta as any).env || {};
     const socketIoUrl = env.VITE_SOCKET_IO_URL || 'http://localhost:3000';
     const socket = io(socketIoUrl, {
       auth: { token: localStorage.getItem('authToken') ?? '' },
       path: '/socket.io'
     });
+    socketRef.current = socket;
+
+    socket.emit('viewing_contact', contactId);
 
     socket.on('newMessage', (newMessage: Message & { contactId: string }) => {
-      if (newMessage.contactId === contactId && !newMessage.sent) {
+      if (newMessage.contactId === contactId) {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (newMessage.sent && newMessage.senderId === currentUser.id) return;
+
         setMessages((prev) => {
           if (prev.some(m => m.id === newMessage.id)) return prev;
           return [...prev, newMessage];
@@ -131,22 +148,61 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
       }
     });
 
+    socket.on('contactUpdated', (updatedContact: Contact) => {
+      if (updatedContact.id === contactId) {
+        setContact(updatedContact);
+      }
+    });
+
+    socket.on('teammate_typing', (data: { contactId: string, userId: number, userName: string }) => {
+      if (data.contactId === contactId) {
+        setTypingAgents(prev => ({ ...prev, [data.userId]: data.userName }));
+      }
+    });
+
+    socket.on('teammate_stop_typing', (data: { userId: number }) => {
+      setTypingAgents(prev => {
+        const next = { ...prev };
+        delete next[data.userId];
+        return next;
+      });
+    });
+
+    socket.on('teammate_viewing', (data: { contactId: string | null, userId: number, userName: string }) => {
+      const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id;
+      if (data.userId === currentUserId) return;
+      
+      setViewingAgents(prev => {
+        const next = { ...prev };
+        if (data.contactId === contactId) {
+          next[data.userId] = data.userName;
+        } else {
+          delete next[data.userId];
+        }
+        return next;
+      });
+    });
+
     return () => {
+      socket.emit('viewing_contact', null);
       socket.disconnect();
     };
   }, [contactId]);
 
+  const handleInputChange = (val: string) => {
+    setInputValue(val);
+    if (socketRef.current && contactId) {
+      socketRef.current.emit('typing_start', contactId);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socketRef.current.emit('typing_end', contactId);
+      }, 2000);
+    }
+  };
+
   const handleSend = async () => {
     if (!inputValue.trim() || isSending) return;
-
     setIsSending(true);
-    const optimisticMsg: Message = {
-      id: `temp-${Date.now()}`,
-      text: inputValue.trim(),
-      sent: true,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, optimisticMsg]);
     const textToSend = inputValue.trim();
     setInputValue("");
 
@@ -157,25 +213,11 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({
-          text: textToSend,
-          contactId: contactId
-        })
+        body: JSON.stringify({ text: textToSend, contactId: contactId })
       });
 
-      if (res.ok) {
-        const newMessage = await res.json();
-        setMessages((prev) =>
-          prev.map((m) => (m.id === optimisticMsg.id ? newMessage : m))
-        );
-        // Turn off AI locally for UI consistency since manually responding
-        setContact(prev => prev ? { ...prev, isAiActive: false } : null);
-      } else {
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-        toast.error("Failed to send message");
-      }
+      if (!res.ok) toast.error("Failed to send message");
     } catch (error) {
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       toast.error("Error sending message");
     } finally {
       setIsSending(false);
@@ -185,74 +227,52 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    toast.info(`Uploading ${file.name}...`);
     const formData = new FormData();
     formData.append("file", file);
-
     try {
       const res = await fetch(`/api/messages/${contactId}/upload`, {
         method: "POST",
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: formData
       });
-
       if (!res.ok) throw new Error();
-      toast.success("File uploaded and sent!");
+      toast.success("File sent!");
     } catch {
       toast.error("Failed to upload file");
     }
-
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const toggleAi = async () => {
     if (!contact) return;
     try {
-      const newState = !(contact.isAiActive ?? true);
+      const newState = !contact.isAiActive;
       const res = await fetch(`/api/contacts/${contact.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ isAiActive: newState })
       });
-      if (res.ok) {
-        setContact(prev => prev ? { ...prev, isAiActive: newState } : null);
-        toast.success(`"Karima" AI Auto-reply ${newState ? 'Activated' : 'Paused'}`);
-      }
-    } catch (e) {
-      toast.error('Failed to toggle AI state');
-    }
+      if (res.ok) toast.success(`AI ${newState ? 'Activated' : 'Paused'}`);
+    } catch (e) { toast.error('Failed to toggle AI'); }
   };
 
   const handleClaim = async () => {
+    setIsClaiming(true);
     try {
       const res = await fetch(`/api/contacts/${contactId}/assign`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({})
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
       if (res.ok) {
         const updated = await res.json();
-        setContact(updated);
+        // Immediately update local state so the button toggles without waiting for socket
+        setContact(prev => prev ? { ...prev, assignedTo: updated.assignedTo } : prev);
         toast.success('Conversation claimed!');
       } else {
         toast.error('Failed to claim conversation');
       }
     } catch (e) {
-      toast.error('Error claiming conversation');
+      toast.error('Error claiming');
     } finally {
       setIsClaiming(false);
     }
@@ -266,11 +286,15 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
       if (res.ok) {
-        const updated = await res.json();
-        setContact(updated);
-        toast.success('Conversation returned to pool.');
+        // Clear assignedTo so "Claim" button reappears immediately
+        setContact(prev => prev ? { ...prev, assignedTo: undefined } : prev);
+        toast.success('Returned to pool.');
+      } else {
+        toast.error('Failed to unclaim');
       }
-    } catch (e) { toast.error('Error unclaiming'); }
+    } catch (e) {
+      toast.error('Error unclaiming');
+    }
   };
 
   const handleReassign = async (userId: number) => {
@@ -283,277 +307,213 @@ export function ActiveChat({ contactId }: ActiveChatProps) {
       });
       if (res.ok) {
         const updated = await res.json();
-        setContact(updated);
-        toast.success('Conversation reassigned.');
+        setContact(prev => prev ? { ...prev, assignedTo: updated.assignedTo } : prev);
+        toast.success('Reassigned successfully.');
+      } else {
+        toast.error('Failed to reassign');
       }
-    } catch (e) { toast.error('Error reassigning'); }
+    } catch (e) {
+      toast.error('Error reassigning');
+    }
   };
 
   if (!contact) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm">Gha nchof l'mohadata...</p>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-1 flex-col bg-background">
-      {/* Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
-            {contact.avatar || contact.name.charAt(0) || "U"}
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-card-foreground">
-              {contact.name || "Loading..."}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {contact.phone || ""}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {!contact.assignedTo && (
-            <button
-              onClick={handleClaim}
-              disabled={isClaiming}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
-              title="Assign this conversation to yourself"
-            >
-              <UserCheck className="h-4 w-4" />
-              Claim
-            </button>
-          )}
-          {contact.assignedTo && (
-            <div className="relative">
-              <button
-                onClick={() => setShowAssignMenu(!showAssignMenu)}
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted hover:bg-surface-hover border border-border px-3 py-1.5 rounded-full transition-colors"
-                title="Manage Assignment"
-              >
-                <span>Assigned: <span className="font-semibold text-foreground">{contact.assignedTo.name}</span></span>
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-              {showAssignMenu && (
-                <div className="absolute top-10 right-0 w-48 bg-background border border-border rounded-xl shadow-lg z-50 overflow-hidden text-sm">
-                  <div className="p-2 border-b border-border bg-muted/20">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">Actions</p>
-                    <button onClick={handleUnclaim} className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted text-rose-500 font-medium transition-colors">Return to Pool</button>
-                  </div>
-                  <div className="p-2">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">Reassign To</p>
-                    <div className="max-h-32 overflow-y-auto space-y-1 scrollbar-thin">
-                      {teamMembers.map(member => (
-                        <button key={member.id} onClick={() => handleReassign(member.id)} className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted font-medium transition-colors">
-                          {member.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+    <div className="flex h-full flex-1 bg-background overflow-hidden relative">
+      <div className="flex flex-1 flex-col min-w-0 border-r border-border h-full">
+        {/* Header */}
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-6">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 flex items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+              {contact.name.charAt(0)}
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-foreground">{contact.name}</h2>
+              <p className="text-[10px] text-muted-foreground">{contact.phone}</p>
+            </div>
+            <div className="flex -space-x-1.5 ml-2">
+              {Object.entries(viewingAgents).map(([id, name]) => (
+                <div key={id} className="h-5 w-5 rounded-full bg-muted border border-background flex items-center justify-center text-[8px] font-bold" title={`${name} is viewing`}>
+                  {name.charAt(0)}
                 </div>
-              )}
+              ))}
             </div>
-          )}
-          <button
-            onClick={toggleAi}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors",
-              (contact.isAiActive ?? true)
-                ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
-                : "bg-muted border-border text-muted-foreground hover:bg-secondary"
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {!contact.assignedTo && (
+              <button onClick={handleClaim} disabled={isClaiming} className="px-3 py-1.5 rounded-full text-xs font-bold bg-primary text-white shadow-sm hover:opacity-90">
+                Claim Conversation
+              </button>
             )}
-            title="Toggle AI Auto-Reply"
-          >
-            <Bot className="h-4 w-4" />
-            {contact.isAiActive ?? true ? "AI: Active" : "AI: Paused"}
-          </button>
-          <button className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground">
-            <Video className="h-4 w-4" />
-          </button>
-          <button className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground">
-            <MoreVertical className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-2">
-          {messages.length === 0 && (
-            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-              Ba9i hta mssg. Bda lhadra!
-            </div>
-          )}
-          {(() => {
-            const filtered = searchQuery ? messages.filter(m => m.text?.toLowerCase().includes(searchQuery.toLowerCase())) : messages;
-            if (searchQuery && filtered.length === 0) return (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                No messages matching "<span className="font-medium text-foreground">{searchQuery}</span>"
-              </div>
-            );
-            return filtered;
-          })().map?.((msg: any) => (
-            <div
-              key={msg.id}
-              className={cn(
-                "flex animate-slide-in",
-                msg.sent ? "justify-end" : "justify-start"
-              )}
-            >
-              <div
-                className={cn(
-                  "max-w-[70%] rounded-2xl px-3.5 py-2",
-                  msg.sent
-                    ? "rounded-br-md bg-chat-sent text-chat-sent-foreground"
-                    : "rounded-bl-md bg-chat-received text-chat-received-foreground"
-                )}
-              >
-                {msg.attachmentUrl ? (
-                  <div className="mb-2 max-w-[200px] overflow-hidden rounded-md border border-border/50">
-                    {msg.attachmentType?.startsWith('image/') ? (
-                      <img src={`/api/uploads/${msg.attachmentUrl.split('/').pop()}`} alt={msg.attachmentName} className="rounded-md w-full h-auto object-cover" />
-                    ) : msg.attachmentType?.startsWith('video/') ? (
-                      <video src={`/api/uploads/${msg.attachmentUrl.split('/').pop()}`} controls className="w-full h-auto" />
-                    ) : (
-                      <a href={`/api/uploads/${msg.attachmentUrl.split('/').pop()}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/10 p-2 rounded-md hover:bg-black/20 transition-colors">
-                        <span className="truncate max-w-[150px] text-xs font-semibold">{msg.attachmentName || "View File"}</span>
-                      </a>
-                    )}
+            {contact.assignedTo && (
+              <div className="relative">
+                <button onClick={() => setShowAssignMenu(!showAssignMenu)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground hover:bg-muted/80">
+                  Claimed <ChevronDown className="h-3 w-3" />
+                </button>
+                {showAssignMenu && (
+                  <div className="absolute top-full right-0 mt-1 w-48 bg-card border border-border rounded-xl shadow-xl z-50 p-1">
+                    <button onClick={handleUnclaim} className="w-full text-left px-3 py-2 text-xs font-medium text-rose-500 hover:bg-rose-50 rounded-lg">Unclaim</button>
+                    {teamMembers.filter(m => m.id !== contact.assignedTo?.id).map(m => (
+                      <button key={m.id} onClick={() => handleReassign(m.id)} className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-muted rounded-lg">{m.name}</button>
+                    ))}
                   </div>
-                ) : null}
-                {msg.text && <p className="text-sm leading-relaxed">{msg.text}</p>}
-                <p
-                  className={cn(
-                    "mt-1 text-[10px]",
-                    msg.sent ? "text-primary-foreground/70" : "text-muted-foreground"
-                  )}
-                >
-                  {formatTime(msg.timestamp)}
-                </p>
+                )}
+              </div>
+            )}
+            <button onClick={() => setShowContactDetails(!showContactDetails)} className={cn("p-2 rounded-lg transition-colors", showContactDetails ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}>
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Message Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+          {messages.map((msg) => (
+            <div key={msg.id} className={cn("flex", msg.sent ? "justify-end" : "justify-start")}>
+              <div className={cn("max-w-[75%] rounded-2xl px-3 py-2 shadow-sm", msg.sent ? "bg-primary text-primary-foreground rounded-br-none" : "bg-muted text-foreground rounded-bl-none")}>
+                {msg.senderName && msg.sent && <p className="text-[9px] font-bold opacity-70 mb-0.5">{msg.senderName}</p>}
+                {msg.attachmentUrl && (
+                  <div className="mb-2 rounded-lg overflow-hidden border border-white/10">
+                    <img src={`/api/uploads/${msg.attachmentUrl.split('/').pop()}`} className="max-w-[240px] h-auto block" />
+                  </div>
+                )}
+                <p className="text-sm leading-snug">{msg.text}</p>
+                <p className="text-[9px] mt-1 opacity-60 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
-      </div>
 
-      {/* Quick Replies / Templates System */}
-      <div className="border-t border-border px-4 py-2 bg-muted/20">
-        <div className="flex items-center gap-2 mb-2">
-          {/* Static Quick Actions */}
-          <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-1 flex-1">
-            <div className="flex items-center gap-1.5 shrink-0 bg-background border border-border px-2 py-1 rounded-md mr-1">
-              <Zap className="h-3 w-3 text-amber-500" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quick</span>
-            </div>
+        {/* Input & Quick Replies */}
+        <div className="border-t border-border p-4 bg-muted/10 space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {[
-              { id: 'pricing', label: "Pricing", icon: DollarSign, text: "The price of this product is 199 MAD 🚚" },
-              { id: 'location', label: "Location", icon: MapPin, text: "We are located in Casablanca, Maarif. Welcome!" },
-              { id: 'confirm', label: "Confirm", icon: CheckCircle2, text: "Alright, your order has been registered. We will send it to you tomorrow." },
-              { id: 'catalog', label: "Catalog", icon: FileText, text: "Here is our catalog: https://waslamenu.com" }
-            ].map((action) => (
-              <button key={action.id} onClick={() => setInputValue(action.text)}
-                className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-hover hover:border-primary/50">
-                <action.icon className="h-3.5 w-3.5 text-primary" />
-                {action.label}
+              { label: "Pricing", text: "The product is 199 MAD" },
+              { label: "Location", text: "We are in Casablanca" },
+              { label: "Confirm", text: "Order confirmed!" }
+            ].map(b => (
+              <button key={b.label} onClick={() => setInputValue(b.text)} className="shrink-0 px-3 py-1.5 rounded-full border border-border bg-card text-[10px] font-bold hover:border-primary transition-colors">
+                {b.label}
               </button>
             ))}
           </div>
-
-          {/* Template toggle button */}
-          <button onClick={() => setShowTemplates(v => !v)}
-            className={cn("shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-              showTemplates ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-foreground")}>
-            <FileText className="h-3.5 w-3.5" />
-            Templates {templates.length > 0 && `(${templates.length})`}
-          </button>
-
-          {/* Search toggle */}
-          <button onClick={() => { setSearchOpen(v => !v); setSearchQuery(""); }}
-            className={cn("shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-              searchOpen ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-foreground")}>
-            <Search className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => fileInputRef.current?.click()} className="p-2 text-muted-foreground hover:text-primary transition-colors"><Paperclip className="h-5 w-5" /></button>
+            <input type="file" ref={fileInputRef} hidden onChange={handleFileUpload} />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={e => handleInputChange(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              placeholder="Send a message..."
+              className="flex-1 bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <button onClick={handleSend} disabled={!inputValue.trim()} className="p-2.5 bg-primary text-white rounded-xl shadow-md disabled:opacity-50"><Send className="h-5 w-5" /></button>
+          </div>
         </div>
-
-        {/* Message search bar */}
-        {searchOpen && (
-          <div className="relative mb-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search messages..."
-              className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-background border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Templates panel */}
-        {showTemplates && (
-          <div className="mb-2 rounded-xl border border-border bg-background shadow-lg p-3 space-y-2 max-h-48 overflow-y-auto scrollbar-thin">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Saved Templates</p>
-              <button onClick={() => {
-                if (!inputValue.trim()) { toast.error("Type a message first to save as template"); return; }
-                const title = newTemplateTitle || inputValue.slice(0, 30) + (inputValue.length > 30 ? '…' : '');
-                fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }, body: JSON.stringify({ title, body: inputValue }) })
-                  .then(res => res.ok ? res.json() : Promise.reject())
-                  .then(() => { toast.success("Template saved!"); fetchTemplates(); setNewTemplateTitle(""); })
-                  .catch(() => toast.error("Failed to save template"));
-              }} className="flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity">
-                <Plus className="h-3 w-3" /> Save current message
-              </button>
-            </div>
-            {templates.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-3">No templates yet. Type a message and click "Save current message".</p>
-            )}
-            {templates.map(t => (
-              <div key={t.id} className="group flex items-start gap-2 p-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => { setInputValue(t.body); setShowTemplates(false); }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{t.body}</p>
-                </div>
-                <button onClick={e => {
-                  e.stopPropagation();
-                  fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
-                    .then(() => { toast.success("Template deleted"); fetchTemplates(); }).catch(() => toast.error("Failed to delete"));
-                }} className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/10 text-rose-500 transition-all">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <button onClick={() => fileInputRef.current?.click()}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground" title="Attach File">
-            <Paperclip className="h-4 w-4" />
-          </button>
-          <input type="file" ref={fileInputRef} hidden onChange={handleFileUpload} accept="image/*,video/*,application/pdf" />
-          <button className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground">
-            <Smile className="h-4 w-4" />
-          </button>
-          <input type="text" placeholder="Kteb hna..." value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            disabled={isSending}
-            className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60" />
-          <button onClick={handleSend} disabled={isSending || !inputValue.trim()}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40">
-            <Send className="h-4 w-4" />
-          </button>
+      {/* Side Panel (Overlay transition) */}
+      <div 
+        className={cn(
+          "h-full border-l border-border bg-card overflow-y-auto transition-all duration-300 absolute right-0 top-0 bottom-0 z-40 shadow-2xl",
+          showContactDetails ? "w-80 translate-x-0" : "w-0 translate-x-full"
+        )}
+      >
+        <div className="w-80 p-5 space-y-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Lead Bio</h3>
+            <button onClick={() => setShowContactDetails(false)}><X className="h-4 w-4" /></button>
+          </div>
+
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">{contact.name.charAt(0)}</div>
+            <div className="text-center group">
+              {editingName ? (
+                <input 
+                  autoFocus 
+                  value={editNameValue} 
+                  onChange={e => setEditNameValue(e.target.value)} 
+                  onBlur={() => setEditingName(false)}
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter') {
+                       await fetch(`/api/contacts/${contactId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }, body: JSON.stringify({ name: editNameValue }) });
+                       setContact(c => c ? { ...c, name: editNameValue } : c);
+                       setEditingName(false);
+                    }
+                  }}
+                  className="bg-transparent border-b border-primary text-center focus:outline-none" 
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => { setEditNameValue(contact.name); setEditingName(true); }}>
+                  <p className="font-bold">{contact.name}</p>
+                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">{contact.phone}</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-bold uppercase text-muted-foreground mb-3 block px-1">Pipeline State</label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {(Object.entries(REVERSE_STATUS_MAP) as [InternalStatus, OrderStatusLabel][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={async () => {
+                    const res = await fetch(`/api/contacts/${contactId}/move`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                      body: JSON.stringify({ status: val })
+                    });
+                    if (res.ok) toast.success(`Moved to ${label}`);
+                  }}
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-semibold transition-all",
+                    contact.status === val ? "bg-primary/10 border-primary/40 text-primary shadow-sm" : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {label}
+                  {contact.status === val && <CheckCircle2 className="h-3.5 w-3.5" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border/50">
+              <p className="text-[8px] font-bold uppercase text-muted-foreground mb-1">Spent</p>
+              <p className="text-xs font-bold">{contact.totalSpent} MAD</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border/50">
+              <p className="text-[8px] font-bold uppercase text-muted-foreground mb-1">Reliability</p>
+              <p className="text-xs font-bold">{contact.reliability || 10}/10</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+             <div className="flex items-center justify-between p-3 rounded-2xl border border-border">
+                <div className="flex items-center gap-3">
+                  <Bot className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-bold">AI Auto-pilot</span>
+                </div>
+                <button onClick={toggleAi} className={cn("px-3 py-1 rounded-full text-[9px] font-bold", contact.isAiActive ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground")}>
+                  {contact.isAiActive ? "ACTIVE" : "PAUSED"}
+                </button>
+             </div>
+             <a href={`https://wa.me/${contact.phone}`} target="_blank" className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 rounded-2xl text-white text-xs font-bold shadow-lg shadow-emerald-500/20">
+               <Phone className="h-4 w-4" /> WhatsApp CRM Chat
+             </a>
+          </div>
         </div>
       </div>
     </div>

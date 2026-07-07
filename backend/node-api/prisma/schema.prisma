@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -77,6 +77,8 @@ model Message {
   attachmentName String?
   teamId         Int?
   team           Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  senderId       Int?
+  senderName     String?
 }
 
 model Settings {
@@ -146,12 +148,14 @@ model AutomationFlow {
 
 model Tag {
   id        Int          @id @default(autoincrement())
-  name      String       @unique
+  name      String
   color     String       @default("#6366f1")
   createdAt DateTime     @default(now())
   teamId    Int?
   team      Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
   contacts  ContactTag[]
+
+  @@unique([name, teamId])
 }
 
 model ContactTag {

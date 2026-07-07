@@ -1,26 +1,28 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 
 const router = Router();
+router.use(authenticateToken);
+router.use(enforceTenancy);
 
 // GET all call logs
-router.get('/', authenticateToken, enforceTenancy, async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
-        const calls = await (prisma.callLog as any).findMany({ 
+        const teamId = req.user!.teamId;
+        const calls = await prisma.callLog.findMany({ 
             where: { teamId },
             orderBy: { createdAt: 'desc' },
-            take: 50
+            take: 50 // Limit to recent 50 for now
         });
         
         // Also compute basic stats for the frontend
-        const totalCalls = await (prisma.callLog as any).count({ where: { teamId } });
-        const completedCalls = await (prisma.callLog as any).count({ where: { teamId, status: 'completed' }});
+        const totalCalls = await prisma.callLog.count({ where: { teamId } });
+        const completedCalls = await prisma.callLog.count({ where: { teamId, status: 'completed' }});
         const confirmationRate = totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0;
         
-        const durationResult = await (prisma.callLog as any).aggregate({
+        const durationResult = await prisma.callLog.aggregate({
             _avg: { duration: true },
             where: { teamId, status: 'completed', duration: { not: null } }
         });
@@ -43,12 +45,16 @@ router.get('/', authenticateToken, enforceTenancy, async (req: Request, res: Res
 });
 
 // POST schedule/initiate a call
-router.post('/schedule', authenticateToken, enforceTenancy, async (req: Request, res: Response) => {
+router.post('/schedule', async (req: AuthRequest, res: Response) => {
     try {
         const { contactId, phoneNumber, direction } = req.body;
-        const teamId = (req as any).user?.teamId as number;
-        // In a real system, you would call Twilio/Vonage API here.
-        // For now, just create a "scheduled" or "completed" stub log depending on mock.
+        const teamId = req.user!.teamId;
+
+        // Verify contact ownership if contactId is provided
+        if (contactId) {
+            const contact = await prisma.contact.findFirst({ where: { id: contactId, teamId } });
+            if (!contact) return res.status(404).json({ error: 'Contact not found' });
+        }
         
         const callLog = await prisma.callLog.create({
             data: {
@@ -57,7 +63,7 @@ router.post('/schedule', authenticateToken, enforceTenancy, async (req: Request,
                 direction: direction || 'outbound',
                 status: 'completed', // Or 'scheduled' if deferred
                 duration: Math.floor(Math.random() * 120) + 15, // Mock duration
-                teamId
+                teamId: teamId
             }
         });
         res.json(callLog);

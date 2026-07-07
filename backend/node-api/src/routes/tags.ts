@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 
 const router = Router();
@@ -8,10 +8,10 @@ router.use(authenticateToken);
 router.use(enforceTenancy);
 
 // GET all tags
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
-        const tags = await (prisma.tag as any).findMany({ where: { teamId }, orderBy: { name: 'asc' } });
+        const teamId = req.user!.teamId;
+        const tags = await prisma.tag.findMany({ where: { teamId }, orderBy: { name: 'asc' } });
         res.json(tags);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch tags' });
@@ -19,10 +19,10 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST create tag
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
     try {
         const { name, color } = req.body;
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         if (!name) return res.status(400).json({ error: 'Tag name is required' });
         const tag = await prisma.tag.create({ data: { name: name.trim(), color: color || '#6366f1', teamId } });
         res.json(tag);
@@ -33,10 +33,10 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // DELETE tag (scoped to team)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
-        await (prisma.tag as any).deleteMany({ where: { id: parseInt(req.params.id), teamId } });
+        const teamId = req.user!.teamId;
+        await prisma.tag.deleteMany({ where: { id: parseInt(req.params.id), teamId } });
         res.json({ message: 'Tag deleted' });
     } catch {
         res.status(500).json({ error: 'Failed to delete tag' });
@@ -44,9 +44,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // POST attach tag to contact
-router.post('/contact/:contactId/:tagId', async (req: Request, res: Response) => {
+router.post('/contact/:contactId/:tagId', async (req: AuthRequest, res: Response) => {
     try {
         const { contactId, tagId } = req.params;
+        const teamId = req.user!.teamId;
+
+        // Verify both belong to the team
+        const [contact, tag] = await Promise.all([
+            prisma.contact.findFirst({ where: { id: contactId, teamId } }),
+            prisma.tag.findFirst({ where: { id: parseInt(tagId), teamId } })
+        ]);
+
+        if (!contact || !tag) {
+            return res.status(404).json({ error: 'Contact or Tag not found' });
+        }
+
         await prisma.contactTag.create({
             data: { contactId, tagId: parseInt(tagId) }
         });
@@ -58,9 +70,21 @@ router.post('/contact/:contactId/:tagId', async (req: Request, res: Response) =>
 });
 
 // DELETE detach tag from contact
-router.delete('/contact/:contactId/:tagId', async (req: Request, res: Response) => {
+router.delete('/contact/:contactId/:tagId', async (req: AuthRequest, res: Response) => {
     try {
         const { contactId, tagId } = req.params;
+        const teamId = req.user!.teamId;
+
+        // Verify both belong to the team
+        const [contact, tag] = await Promise.all([
+            prisma.contact.findFirst({ where: { id: contactId, teamId } }),
+            prisma.tag.findFirst({ where: { id: parseInt(tagId), teamId } })
+        ]);
+
+        if (!contact || !tag) {
+            return res.status(404).json({ error: 'Contact or Tag not found' });
+        }
+
         await prisma.contactTag.delete({
             where: { contactId_tagId: { contactId, tagId: parseInt(tagId) } }
         });
@@ -71,26 +95,37 @@ router.delete('/contact/:contactId/:tagId', async (req: Request, res: Response) 
 });
 
 // POST bulk tag contacts
-router.post('/bulk', async (req: Request, res: Response) => {
+router.post('/bulk', async (req: AuthRequest, res: Response) => {
     try {
         const { contactIds, tagId } = req.body;
+        const teamId = req.user!.teamId;
+
         if (!Array.isArray(contactIds) || !tagId) return res.status(400).json({ error: 'Invalid payload' });
+        
+        // Verify tag belongs to team
+        const tag = await prisma.tag.findFirst({ where: { id: parseInt(tagId), teamId } });
+        if (!tag) return res.status(404).json({ error: 'Tag not found' });
+
         for (const contactId of contactIds) {
             try {
-                await prisma.contactTag.create({ data: { contactId, tagId: parseInt(tagId) } });
-            } catch {} // skip already-tagged
+                // Verify contact ownership (slightly inefficient but safe for small batches)
+                const contact = await prisma.contact.findFirst({ where: { id: contactId, teamId } });
+                if (contact) {
+                    await prisma.contactTag.create({ data: { contactId, tagId: parseInt(tagId) } });
+                }
+            } catch {} // skip already-tagged or invalid contacts
         }
-        res.json({ message: `Tag applied to ${contactIds.length} contacts` });
+        res.json({ message: `Tag applied to existing contacts in your team` });
     } catch {
         res.status(500).json({ error: 'Failed to bulk tag' });
     }
 });
 
 // POST bulk delete contacts (scoped to team)
-router.post('/bulk-delete', async (req: Request, res: Response) => {
+router.post('/bulk-delete', async (req: AuthRequest, res: Response) => {
     try {
         const { contactIds } = req.body;
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         if (!Array.isArray(contactIds)) return res.status(400).json({ error: 'Invalid payload' });
         await prisma.contact.deleteMany({ where: { id: { in: contactIds }, teamId } });
         res.json({ message: `Deleted ${contactIds.length} contacts` });

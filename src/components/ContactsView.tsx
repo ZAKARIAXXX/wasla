@@ -172,7 +172,7 @@ export function ContactsView() {
         const lines = text.split('\n').slice(1).filter(l => l.trim());
         const contactsData = lines.map(line => {
             const [, name, phone, email, status, totalSpent] = line.split(',');
-            return { name: name?.replace(/"/g, '') || '', phone: phone?.replace(/"/g, '') || '', email: email?.replace(/"/g, ''), status: status?.replace(/"/g, '') || 'new-order', totalSpent: parseFloat(totalSpent) || 0 };
+            return { name: name?.replace(/"/g, '') || '', phone: phone?.replace(/"/g, '') || '', email: email?.replace(/"/g, ''), status: status?.replace(/"/g, '') || 'lead', totalSpent: parseFloat(totalSpent) || 0 };
         }).filter(c => c.name && c.phone);
         try {
             const res = await fetch('/api/contacts/import', { method: 'POST', headers: authHeaders, body: JSON.stringify({ contacts: contactsData }) });

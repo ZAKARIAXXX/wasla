@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../db';
-import { generateToken } from '../middleware/auth';
+import { generateToken, generateServiceToken, authenticateToken, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -57,7 +57,7 @@ router.post('/signup', async (req: Request, res: Response) => {
             }
         });
 
-        const token = generateToken({ id: user.id, email: user.email, role: user.role, teamId: user.teamId! });
+        const token = generateToken({ id: user.id, email: user.email, name: user.name || undefined, role: user.role, teamId: user.teamId! });
 
         res.status(201).json({
             token,
@@ -133,6 +133,37 @@ router.post('/reset-password', async (req: Request, res: Response) => {
         res.json({ message: 'Password has been reset successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/service-token', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        if (req.user?.role !== 'Admin') {
+            return res.status(403).json({ error: 'Forbidden: Only Admins can generate service tokens' });
+        }
+
+        // CRITICAL: Look up the user's REAL teamId from the DB.
+        // Do NOT trust req.user.teamId — the browser JWT may be stale after team reassignments.
+        const dbUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!dbUser || !dbUser.teamId) {
+            return res.status(400).json({ error: 'Admin user has no team assigned in the database' });
+        }
+        
+        const token = generateServiceToken({ 
+            id: -1, // Phantom ID so frontend never confuses bot messages with the admin's own messages
+            email: 'service-account@internal.bot', 
+            role: 'Admin', 
+            teamId: dbUser.teamId  // ← Real teamId from DB, not stale JWT claim
+        });
+
+        console.log(`[Auth] Service token generated for teamId: ${dbUser.teamId} by user ${dbUser.email}`);
+        res.json({ 
+            token, 
+            teamId: dbUser.teamId,
+            message: `Non-expiring service token generated for team ${dbUser.teamId}. Use this in n8n.` 
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to generate token' });
     }
 });
 

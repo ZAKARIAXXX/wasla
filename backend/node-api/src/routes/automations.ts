@@ -1,16 +1,16 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { enforceTenancy } from '../middleware/tenancy';
 
 const router = Router();
 router.use(authenticateToken);
 router.use(enforceTenancy);
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
-        const flows = await (prisma.automationFlow as any).findMany({
+        const teamId = req.user!.teamId;
+        const flows = await prisma.automationFlow.findMany({
             where: { teamId },
             orderBy: { createdAt: 'desc' }
         });
@@ -18,20 +18,20 @@ router.get('/', async (req: Request, res: Response) => {
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
     try {
         const { name, triggerType, actionType } = req.body;
-        const teamId = (req as any).user?.teamId as number;
-        const flow = await (prisma.automationFlow as any).create({
+        const teamId = req.user!.teamId;
+        const flow = await prisma.automationFlow.create({
             data: { name, triggerType, actionType, teamId }
         });
         res.json(flow);
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-router.put('/:id/toggle', async (req: Request, res: Response) => {
+router.put('/:id/toggle', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         const { isActive } = req.body;
         const flow = await prisma.automationFlow.updateMany({
             where: { id: parseInt(req.params.id), teamId },
@@ -42,9 +42,9 @@ router.put('/:id/toggle', async (req: Request, res: Response) => {
     } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
-        const teamId = (req as any).user?.teamId as number;
+        const teamId = req.user!.teamId;
         const result = await prisma.automationFlow.deleteMany({
             where: { id: parseInt(req.params.id), teamId }
         });

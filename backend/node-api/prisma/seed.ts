@@ -6,8 +6,36 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('Starting MVP multi-tenant database seed...');
 
-    // Hash a common password
+    // Hash common passwords
     const passwordHash = await bcrypt.hash('password123', 10);
+    const demoPasswordHash = await bcrypt.hash('demo123', 10);
+
+    // Create Admin Team
+    const adminTeam = await prisma.team.create({
+        data: {
+            name: 'Wasla Administration',
+            whatsappPhoneNumberId: '000000000000000'
+        }
+    });
+
+    // Create Demo User
+    const demoUser = await prisma.user.upsert({
+        where: { email: 'demo@wasla.com' },
+        update: { teamId: adminTeam.id },
+        create: {
+            email: 'demo@wasla.com',
+            name: 'Demo Admin',
+            password: demoPasswordHash,
+            role: 'Admin',
+            teamId: adminTeam.id,
+            settings: {
+                create: {
+                    businessName: 'Wasla CRM',
+                    businessPhone: '+212 600-0000',
+                }
+            }
+        }
+    });
 
     // Create Team A
     const teamA = await prisma.team.create({
@@ -95,7 +123,7 @@ async function main() {
         data: {
             name: 'Customer A1',
             phone: '15551111111',
-            status: 'new-order',
+            status: 'lead',
             teamId: teamA.id,
             assignedToId: userA.id,
             messages: {
@@ -112,7 +140,7 @@ async function main() {
         data: {
             name: 'Customer B1',
             phone: '15552222222',
-            status: 'new-order',
+            status: 'lead',
             teamId: teamB.id,
             assignedToId: userB.id,
             messages: {
@@ -129,7 +157,7 @@ async function main() {
         data: {
             name: 'Customer C1',
             phone: '15553333333',
-            status: 'new-order',
+            status: 'lead',
             teamId: teamC.id,
             assignedToId: userC.id,
             messages: {
@@ -142,6 +170,7 @@ async function main() {
     });
 
     console.log('Seed completed successfully!');
+    console.log(`Demo User: ${demoUser.email} / demo123`);
     console.log(`Team A: ${teamA.name} / ${userA.email}`);
     console.log(`Team B: ${teamB.name} / ${userB.email}`);
     console.log(`Team C: ${teamC.name} / ${userC.email}`);

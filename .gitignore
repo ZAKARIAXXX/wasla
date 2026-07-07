@@ -28,3 +28,18 @@ dist-ssr
 *.sln
 *.sw?
 nul
+
+# Local database, logs, and development output
+backend/node-api/prisma/dev.db
+backend/node-api/prisma/dev.db-journal
+backend/node-api/recent_msgs.json
+backend/node-api/server.log
+backend/node-api/server2.txt
+backend/node-api/tunnel.log
+backend/node-api/db_dump.json
+backend/node-api/uploads/
+eslint-report.json
+eslint.json
+lint.txt
+lint3.txt
+

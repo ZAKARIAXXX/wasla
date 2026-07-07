@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-export type JwtPayload = { id: number; email: string; role: string; teamId: number };
+export type JwtPayload = { id: number; email: string; name?: string; role: string; teamId: number };
 
 export interface AuthRequest extends Request {
   user?: {
     id: number;
     email: string;
+    name?: string;
     role: string;
     teamId: number;
   };
@@ -32,6 +33,10 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 
 export const generateToken = (payload: JwtPayload): string => {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+};
+
+export const generateServiceToken = (payload: JwtPayload): string => {
+    return jwt.sign(payload, JWT_SECRET); // No expiration
 };
 
 export const requireRole = (role: string) => {
