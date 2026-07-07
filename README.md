@@ -13,19 +13,19 @@ It includes **Karima AI**, an AI assistant module that supports Moroccan Darija 
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-*   **💬 Centralized Chat Inbox:** Real-time customer communication interface powered by WebSockets.
-*   **🤖 Karima AI:** Multilingual assistant for lead qualification and automated responses in Moroccan Darija and French.
-*   **📋 Kanban Lead Pipeline:** Visual drag-and-drop workflow tracking lead stages.
-*   **⏱️ Automated Campaigns:** Scheduled follow-ups and broadcast messaging templates using background workers.
-*   **📈 Performance Analytics:** Key metrics covering response times, conversation volumes, and conversion rates.
-*   **👥 Team Collaboration:** Role-based access controls (Owner, Admin, Agent) for shared inbox management.
-*   **🌐 Localization:** Multi-language interface supporting English, French, and Darija/Arabic.
+*   ** Centralized Chat Inbox:** Real-time customer communication interface powered by WebSockets.
+*   ** Karima AI:** Multilingual assistant for lead qualification and automated responses in Moroccan Darija and French.
+*   ** Kanban Lead Pipeline:** Visual drag-and-drop workflow tracking lead stages.
+*   ** Automated Campaigns:** Scheduled follow-ups and broadcast messaging templates using background workers.
+*   ** Performance Analytics:** Key metrics covering response times, conversation volumes, and conversion rates.
+*   ** Team Collaboration:** Role-based access controls (Owner, Admin, Agent) for shared inbox management.
+*   ** Localization:** Multi-language interface supporting English, French, and Darija/Arabic.
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 React, TypeScript, Vite, Tailwind CSS, Shadcn UI, React Query, Framer Motion, Recharts, Socket.io-client, i18next
@@ -35,7 +35,7 @@ Node.js, Express, TypeScript, Prisma ORM, SQLite/PostgreSQL, Socket.io, JWT, Bcr
 
 ---
 
-## 📐 Architecture
+##  Architecture
 
 ```
 Frontend (React)
@@ -47,7 +47,7 @@ Frontend (React)
 
 ---
 
-## 💻 Setup
+##  Setup
 
 ### Clone and Install
 ```bash
@@ -83,7 +83,7 @@ npm run dev
 
 ---
 
-## 🛠️ What I Built & Key Challenges
+##  What I Built & Key Challenges
 
 *   **Real-time synchronization:** Designed and implemented a bi-directional messaging pipeline using WebSockets (Socket.io) to ensure multiple agents see instant chat updates simultaneously.
 *   **Drag-and-drop state management:** Built a lightweight, reactive Kanban board for deal tracking with persistence directly to the relational database schema.
@@ -92,7 +92,7 @@ npm run dev
 
 ---
 
-## 🔒 Security & Hygiene
+##  Security & Hygiene
 
 *   All sensitive environment keys are managed via `.env` files.
 *   `.env` files and SQLite database binaries (`*.db`) are strictly excluded from version control via `.gitignore`.
@@ -100,6 +100,6 @@ npm run dev
 
 ---
 
-## 📄 License
+##  License
 
 MIT
