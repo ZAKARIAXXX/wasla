@@ -1,5 +1,10 @@
 # Wasla (وصلة) — WhatsApp CRM & AI Assistant
 
+> **Status (Nov 2026):** v1 discontinued. WhatsApp Business policy
+> changes ended the AI-reply model this version was built on. This
+> repository remains as a record of what was built; a v2 is in design
+> as a system of record for Moroccan driving schools.
+
 Wasla is a SaaS CRM designed for WhatsApp-based businesses. It helps teams manage conversations, track leads, automate follow-ups, and improve customer response efficiency.
 
 It includes **Karima AI**, an AI assistant module that supports Moroccan Darija and French for automated customer interaction and lead qualification (simulated using integrated custom NLP heuristics and OpenAI API patterns).
@@ -8,8 +13,7 @@ It includes **Karima AI**, an AI assistant module that supports Moroccan Darija 
 
 ## 🔗 Live Demo
 
-*   **URL:** [https://wasla-demo.example.com](https://wasla-demo.example.com) *(Insert your deployed demo link here)*
-*   **Demo Credentials:** Available on the login page for public testing.
+*   No public demo — v1 is discontinued (see the status note above).
 
 ---
 
