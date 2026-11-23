@@ -39,7 +39,7 @@ It includes **Karima AI**, an AI assistant module that supports Moroccan Darija 
 React, TypeScript, Vite, Tailwind CSS, Shadcn UI, React Query, Framer Motion, Recharts, Socket.io-client, i18next
 
 ### Backend
-Node.js, Express, TypeScript, Prisma ORM, SQLite/PostgreSQL, Socket.io, JWT, Bcrypt, Node-cron
+Node.js, Express, TypeScript, Prisma ORM, PostgreSQL, Socket.io, JWT, Bcrypt, Node-cron
 
 ---
 
@@ -59,8 +59,8 @@ Frontend (React)
 
 ### Clone and Install
 ```bash
-git clone https://github.com/yourusername/waslasaas.git
-cd waslasaas
+git clone https://github.com/ZAKARIAXXX/wasla.git
+cd wasla
 npm install
 ```
 
@@ -72,7 +72,7 @@ npm install
 
 Create a `.env` file inside `backend/node-api` using the following variables:
 ```env
-PORT=5000
+PORT=3001
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="your_jwt_secret_here"
 ```
