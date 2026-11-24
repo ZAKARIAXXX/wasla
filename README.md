@@ -49,7 +49,7 @@ Node.js, Express, TypeScript, Prisma ORM, PostgreSQL, Socket.io, JWT, Bcrypt, No
 Frontend (React)
   └── API Layer (REST + WebSockets)
         └── Backend (Node.js + Express)
-              ├── Database (SQLite/PostgreSQL via Prisma)
+              ├── Database (PostgreSQL via Prisma)
               └── AI Agent Module (Karima AI handler)
 ```
 
@@ -73,7 +73,7 @@ npm install
 Create a `.env` file inside `backend/node-api` using the following variables:
 ```env
 PORT=3001
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://user:password@localhost:5432/wasla"
 JWT_SECRET="your_jwt_secret_here"
 ```
 
