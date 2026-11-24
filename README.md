@@ -2,12 +2,12 @@
 
 > **Status (Nov 2026):** v1 discontinued. WhatsApp Business policy
 > changes ended the AI-reply model this version was built on. This
-> repository remains as a record of what was built; a v2 is in active
-> build on this codebase as a system of record for Moroccan driving
-> schools — candidate dossiers with document checklists, a NARSA
-> eligibility engine (legal 30-day delay, training hours, per-vehicle
-> monthly quota), and conflict-free lesson scheduling are implemented;
-> payments and notifications are next.
+> repository remains as a record of what was built; a v2 was built on this codebase in November 2026 (S1–S5) as a system
+> of record for Moroccan driving schools — candidate dossiers with
+> document checklists, a NARSA eligibility engine (legal 30-day delay,
+> training hours, per-vehicle monthly quota), and conflict-free lesson
+> scheduling are implemented. **v2 was parked on 2026-11-24 by
+> decision**; this repository is kept as portfolio proof.
 
 Wasla is a SaaS CRM designed for WhatsApp-based businesses. It helps teams manage conversations, track leads, automate follow-ups, and improve customer response efficiency.
 
